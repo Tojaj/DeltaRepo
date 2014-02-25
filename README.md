@@ -27,4 +27,5 @@ All unit tests run from checkout dir
 
 ## Links
 
-TODO
+[DeltaRepo's Wiki](https://github.com/Tojaj/DeltaRepo/wiki)
+
