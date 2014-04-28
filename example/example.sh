@@ -1,11 +1,16 @@
 #!/bin/bash
 
+CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
+DELTAREPO_DIR="$( cd "$CURRENT_DIR/.." && pwd )"
+export PATH="$DELTAREPO_DIR/bin:$PATH"
+export PYTHONPATH="$DELTAREPO_DIR/"
+
 rm -rf test/
 mkdir test/
 cp -r repos/repo1 test/
 cp -r repos/repo3 test/
 
-../repoupdater.py test/repo1/ $@ --repo file://`pwd`/test/repo3/ --drmirror file://`pwd`/deltarepos/
+repoupdater --verbose test/repo1/ $@ --repo "file://$CURRENT_DIR/test/repo3/" --drmirror "file://$CURRENT_DIR/deltarepos/"
 
 rm -rf test2/
 mkdir test2/
@@ -15,4 +20,4 @@ rm -f test2/repo1/repodata/*sqlite*
 rm -f test2/repo1/repodata/*other*
 rm -f test2/repo1/repodata/*foobar*
 
-../repoupdater.py test2/repo1/ $@ --repo file://`pwd`/test/repo3/ --drmirror file://`pwd`/deltarepos/
+repoupdater test2/repo1/ --verbose $@ --repo "file://$CURRENT_DIR/test/repo3/" --drmirror "file://$CURRENT_DIR/deltarepos/"
