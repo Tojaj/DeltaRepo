@@ -15,8 +15,15 @@ import shutil
 import time
 import librepo
 import hashlib
-import deltarepo
 import createrepo_c as cr
+
+here = sys.path[0]
+if here != '/usr/bin':
+    # git checkout
+    toplevel = os.path.dirname(here)
+    sys.path[0] = toplevel
+
+import deltarepo
 from deltarepo import DeltaRepoError, DeltaRepoPluginError
 
 LOG_FORMAT = "%(message)s"
@@ -38,8 +45,8 @@ def parse_options():
                           "all specified directories.")
 
     group = parser.add_argument_group("deltarepos.xml file generation (--gendeltareposfile)")
-    group.add_argument("-o", "--outputdir", action="store", metavar="DIR",
-                      help="Set different output directory for deltarepos.xml")
+    #group.add_argument("-o", "--outputdir", action="store", metavar="DIR",
+    #                  help="Set different output directory for deltarepos.xml")
     group.add_argument("--force", action="store_true",
                        help="Ignore bad repositories")
 
@@ -70,10 +77,10 @@ def parse_options():
     if args.quiet and args.verbose:
         parser.error("Cannot use quiet and verbose simultaneously!")
 
-    if args.outputdir and not args.gendeltareposfile:
-        parser.error("--outputdir cannot be used")
-    elif args.outputdir and not os.path.isdir(args.outputdir):
-        parser.error("--outputdir must be a directory: %s" % args.outputdir)
+    #if args.outputdir and not args.gendeltareposfile:
+    #    parser.error("--outputdir cannot be used")
+    #elif args.outputdir and not os.path.isdir(args.outputdir):
+    #    parser.error("--outputdir must be a directory: %s" % args.outputdir)
 
     if args.debug:
         args.verbose = True

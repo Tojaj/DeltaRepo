@@ -1,1 +1,4 @@
-INSTALL (PROGRAMS deltarepo managedeltarepos repocontenthash repoupdater DESTINATION bin)
+INSTALL (PROGRAMS "deltarepo" DESTINATION bin)
+INSTALL (PROGRAMS "managedeltarepos" DESTINATION bin)
+INSTALL (PROGRAMS "repocontenthash" DESTINATION bin)
+INSTALL (PROGRAMS "repoupdater" DESTINATION bin)

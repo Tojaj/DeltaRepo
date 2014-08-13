@@ -10,6 +10,13 @@ import sys
 import logging
 import argparse
 import librepo
+
+here = sys.path[0]
+if here != '/usr/bin':
+    # git checkout
+    toplevel = os.path.dirname(here)
+    sys.path[0] = toplevel
+
 import deltarepo
 from deltarepo import DeltaRepoError, DeltaRepoPluginError
 from deltarepo.updater_common import LocalRepo, OriginRepo, DRMirror, UpdateSolver, Updater
@@ -82,6 +89,9 @@ def parse_options():
 
     if origin_repo and args.target_contenthash:
         parser.error("Origin repo shouldn't be specified if --target-contenthash is used")
+
+    if not origin_repo and not args.target_contenthash:
+        parser.error("Origin repo cannot be specified together with --target-contenthash")
 
     if args.debug:
         args.verbose = True
@@ -185,7 +195,6 @@ def update_with_deltas(args, drmirros, localrepo, originrepo, logger):
 def main(args, logger):
     localrepo = LocalRepo.from_path(args.localrepo[0])
     originrepo = None
-    drmirrors = []
 
     # TODO: Update to selected revision
     source_contenthash = None
@@ -198,8 +207,9 @@ def main(args, logger):
                                          mirrorlist=args.repomirrorlist,
                                          metalink=args.repometalink)
 
-    for i in args.drmirror:
-        drmirror = DRMirror.from_url(i)
+    drmirrors = []
+    for mirror_url in args.drmirror:
+        drmirror = DRMirror.from_url(mirror_url)
         drmirrors.append(drmirror)
 
     if drmirrors:

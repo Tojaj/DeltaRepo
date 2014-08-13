@@ -10,6 +10,13 @@ import sys
 import hashlib
 import logging
 import argparse
+
+here = sys.path[0]
+if here != '/usr/bin':
+    # git checkout
+    toplevel = os.path.dirname(here)
+    sys.path[0] = toplevel
+
 import deltarepo
 from deltarepo import DeltaRepoError
 from deltarepo.updater_common import LocalRepo
