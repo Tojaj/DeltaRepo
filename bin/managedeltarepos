@@ -160,26 +160,36 @@ def repo_size(path, logger):
 
     return total_size
 
-def deltareposrecord_from_repopath(path, logger, strip_path_prefix=True):
-    # Parse repo's deltametadata.xml
+def deltareposrecord_from_repopath(path, logger, prefix_to_strip=None):
+    """Create DeltaReposRecord object from a delta repository"""
 
+    # Prepare paths
     path = os.path.abspath(path)
+    prefix_to_strip = os.path.abspath(prefix_to_strip)
+    stripped_path = path
+    if prefix_to_strip and path.startswith(prefix_to_strip):
+        stripped_path = os.path.relpath(path, prefix_to_strip)
 
-    yum_repo_dict, yum_repomd_dict = parse_repomd(path, logger)
-
+    # Parse repomd.xml of the delta repo
     repomd_path = os.path.join(path, "repodata/repomd.xml")
     repomd = cr.Repomd(repomd_path)
 
-    deltametadata_path = os.path.join(path, yum_repomd_dict["deltametadata"]["location_href"])
+    deltametadata_path = None
+    for repomd_rec in repomd.records:
+        if repomd_rec.type == "deltametadata" and repomd_rec.location_href:
+            deltametadata_path = os.path.join(path, repomd_rec.location_href)
+
+    if not deltametadata_path:
+        raise DeltaRepoError("Not a delta repository: {}".format(path))
+
+    # Parse deltametadata.xml of the delta repo
     dm = deltarepo.DeltaMetadata()
     dm.xmlparse(deltametadata_path)
 
-    if strip_path_prefix and path.startswith(os.getcwd()):
-        path = path[len(os.getcwd())+1:]
-
+    # Prepare DeltaReposRecord aka <deltarepo>
     rec = deltarepo.DeltaReposRecord()
     rec.location_base = None
-    rec.location_href = path
+    rec.location_href = stripped_path
     rec.size_total = repo_size(path, logger)
     rec.revision_src = dm.revision_src
     rec.revision_dst = dm.revision_dst
@@ -189,12 +199,13 @@ def deltareposrecord_from_repopath(path, logger, strip_path_prefix=True):
     rec.timestamp_src = dm.timestamp_src
     rec.timestamp_dst = dm.timestamp_dst
 
+    # Parepare <data> elements with info about files in the repo
     for repomd_rec in repomd.records:
         if not repomd_rec.type:
             continue
         rec.set_data(repomd_rec.type, repomd_rec.size)
 
-    repomd_path = yum_repo_dict["repomd"]
+    # Collect info about repomd.xml file of the delta repo
     rec.repomd_timestamp = int(os.path.getmtime(repomd_path))
     rec.repomd_size = os.path.getsize(repomd_path)
     checksumval = file_checksum(repomd_path)
@@ -217,6 +228,10 @@ def write_deltarepos_file(path, records, append=False):
     f.close()
 
 def gen_delta(old_repo_dir, new_repo_dir, logger, deltarepos_dir=None):
+    # Use supplied deltarepos_dir or use the current working dir
+    if not deltarepos_dir:
+        deltarepos_dir = os.getcwd()
+
     # Gen delta to a temporary directory
     prefix = "deltarepo-{0}-".format(int(time.time()))
     tmp_dir = tempfile.mkdtemp(prefix=prefix, dir="/tmp/")
@@ -230,16 +245,14 @@ def gen_delta(old_repo_dir, new_repo_dir, logger, deltarepos_dir=None):
         shutil.rmtree(tmp_dir)
         raise
 
-    if not deltarepos_dir:
-        deltarepos_dir = os.getcwd()
-
-    # Move the delta to the deltarepos_dir or to the current working directory
     dst_dir = os.path.join(deltarepos_dir, os.path.basename(tmp_dir))
+
+    # Move the delta to the deltarepos_dir or to the destination directory
     shutil.copytree(tmp_dir, dst_dir)
     shutil.rmtree(tmp_dir)
 
     # Prepare repo's DeltaReposRecord
-    rec = deltareposrecord_from_repopath(dst_dir, logger)
+    rec = deltareposrecord_from_repopath(dst_dir, logger, deltarepos_dir)
 
     # Add the record to the deltarepos.xml
     write_deltarepos_file(deltarepos_dir, [rec], append=True)
@@ -250,7 +263,7 @@ def gen_deltarepos_file(workdir, logger, force=False):
     cwd = os.getcwdu()
     logger.debug("Changing work dir to: {0} (old work dir: {1})".format(
                     workdir, cwd))
-    os.chdir(workdir)
+    #os.chdir(workdir)
 
     deltareposrecords = []
 
@@ -259,16 +272,16 @@ def gen_deltarepos_file(workdir, logger, force=False):
         dirs.sort()
         if "repodata" in dirs:
             try:
-                rec = deltareposrecord_from_repopath(root, logger)
+                rec = deltareposrecord_from_repopath(root, logger, workdir)
             except DeltaRepoError:
-                if not force:
-                    os.chdir(cwd)
-                    raise
                 logger.warning("Bad repository: {0}".format(root))
+                if not force:
+                    #os.chdir(cwd)
+                    raise
             deltareposrecords.append(rec)
 
     write_deltarepos_file(workdir, deltareposrecords, append=False)
-    os.chdir(cwd)
+    #os.chdir(cwd)
 
 
 def main(args, logger):
