@@ -499,17 +499,25 @@ class UpdateSolver(LoggingInterface):
                 and repo.contenthash_type == contenthash_type:
             return (repo.contenthash_type, repo.contenthash)
 
+        self._debug('Finding content hash for revision "%s" with ts: %s' % \
+                    (repo.revision, repo.timestamp))
+
         for link in self._links:
             matches = 0
             if repo.revision and link.revision_src and repo.timestamp and link.timestamp_src:
                 if repo.revision == link.revision_src and repo.timestamp == link.timestamp_src:
                     if link.contenthash_type == contenthash_type:
+                        self._debug("Found %s %s" % (contenthash_type, link.contenthash_src))
                         return (contenthash_type, link.contenthash_src)
+
             if repo.revision and link.revision_dst and repo.timestamp and link.timestamp_dst:
                 if repo.revision == link.revision_dst and repo.timestamp == link.timestamp_dst:
                     if link.contenthash_type == contenthash_type:
+                        self._debug("Found %s %s" % (contenthash_type, link.contenthash_dst))
                         return (contenthash_type, link.contenthash_dst)
 
+        self._debug("Not found")
+        # TODO: List all available links (?)
         return (contenthash_type, None)
 
     def resolve_path(self, source_contenthash, target_contenthash, contenthash_type="sha256"):
