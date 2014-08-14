@@ -43,6 +43,35 @@ class DeltaReposRecord(object):
     #            raise TypeError("Strings expected, got ({0}, {1})".format(key, val))
     #    self.plugins[name] = attrs
 
+    def __repr__(self):
+        str = "<DeltaReposRecord:\n"
+        for key, val in self.__dict__.iteritems():
+            if key.startswith("_"):
+                continue
+            if key == "data":
+                continue
+            str += "  {}: {}\n".format(key, val)
+        str += ">"
+        return str
+
+    def isvalid(self):
+        if not self.location_href:
+            return False
+        if not self.size_total:
+            return False
+        if not self.revision_dst or not self.revision_dst:
+            return False
+        if not self.contenthash_src or not self.contenthash_dst:
+            return False
+        if not self.contenthash_type:
+            return False
+        if not self.timestamp_src or not self.timestamp_dst:
+            return False
+        for data_dict in self.data.itervalues():
+            if "size" not in data_dict:
+                return False
+        return True
+
     def get_data(self, type):
         return self.data.get(type, None)
 

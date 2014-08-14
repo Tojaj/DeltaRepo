@@ -5,6 +5,9 @@ DELTAREPO_DIR="$( cd "$CURRENT_DIR/.." && pwd )"
 export PATH="$DELTAREPO_DIR/bin:$PATH"
 export PYTHONPATH="$DELTAREPO_DIR/"
 
+echo "export PATH=$PATH"
+echo "export PYTHONPATH=$PYTHONPATH"
+
 rm -rf test/
 mkdir test/
 cp -r repos/repo1 test/

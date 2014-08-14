@@ -336,6 +336,10 @@ class DeltaRepoGenerator(LoggingInterface):
                 self._debug(" - {0}".format(rec.type))
                 self.delta_repomd.set_record(rec)
 
+        # Check if calculated contenthashes match
+        # and calculate them if they don't exist
+        self.check_content_hashes()
+
         # Write out deltametadata.xml
         self.fill_deltametadata()
         deltametadata_xml = self.deltametadata.xmldump()
@@ -357,9 +361,6 @@ class DeltaRepoGenerator(LoggingInterface):
         if self.unique_md_filenames:
             deltametadata_rec.rename_file()
         self.delta_repomd.set_record(deltametadata_rec)
-
-        # Check if calculated contenthashes match
-        self.check_content_hashes()
 
         # Prepare and write out the new repomd.xml
         self._debug("Preparing repomd.xml ...")

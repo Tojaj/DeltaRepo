@@ -24,6 +24,8 @@ from deltarepo import needed_delta_metadata
 from deltarepo.util import size_to_human_readable_str
 
 LOG_FORMAT = "%(message)s"
+MAX_RATIO = 0.9
+
 
 # TODO: Multiple levels of verbosity (-v -vv -vvv)
 
@@ -57,6 +59,15 @@ def parse_options():
     parser.add_argument("--force-deltas", action="store_true",
                         help="Always use deltas. Origin repo use only to determine "
                              "target content hash.")
+    parser.add_argument("--delta-or-nothing", action="store_true",
+                        help="If deltas are smaller than origin repo use deltas, "
+                             "if not don't do nothing.")
+    parser.add_argument("--max-ratio",
+                        help="Maximal DeltaSize/OriginSize ratio for using "
+                              "delta. (Default %s)" % MAX_RATIO,
+                        default=MAX_RATIO)
+    parser.add_argument("--outputdir", default=None,
+                        help="Output directory. Use if you don't want to overwrite localrepo.")
 
     args = parser.parse_args()
 
@@ -71,10 +82,13 @@ def parse_options():
     if args.quiet and args.verbose:
         parser.error("Cannot use quiet and verbose simultaneously!")
 
-    #if args.outputdir and not args.gendeltareposfile:
-    #    parser.error("--outputdir cannot be used")
-    #elif args.outputdir and not os.path.isdir(args.outputdir):
-    #    parser.error("--outputdir must be a directory: %s" % args.outputdir)
+    if args.outputdir:
+        if not os.path.isdir(args.outputdir):
+            parser.error("--outputdir must be a directory: %s" % args.outputdir)
+        repodata_dir = os.path.join(args.outputdir, "repodata")
+        if os.path.exists(repodata_dir):
+            parser.error("Path {} already exists! Use different "
+                         "--outputdir".format(repodata_dir))
 
     if not os.path.isdir(args.localrepo[0]) or not os.path.isdir(os.path.join(args.localrepo[0], "repodata")):
         parser.error("{0} is not a repository (a directory containing "
@@ -91,7 +105,14 @@ def parse_options():
         parser.error("Origin repo shouldn't be specified if --target-contenthash is used")
 
     if not origin_repo and not args.target_contenthash:
-        parser.error("Origin repo cannot be specified together with --target-contenthash")
+        parser.error("Target contenthash is unknown. "
+                     "Specify origin repo (--repo, --repomirrorlist, --repometalink) "
+                     "or --target-contenthash")
+
+    try:
+        args.max_ratio = float(args.max_ratio)
+    except TypeError, ValueError:
+        parser.error("Value of --max-ratio have to be a float number")
 
     if args.debug:
         args.verbose = True
@@ -181,16 +202,19 @@ def update_with_deltas(args, drmirros, localrepo, originrepo, logger):
         logger.debug("Origin repo real cost: {0}".format(size_to_human_readable_str(origin_real_cost)))
 
         #Check if download origin repo or use deltas
-        if origin_real_cost < real_cost and not args.force_deltas:
-            logger.debug("Using the origin repo - its cost is less then cost of deltas")
-            # Update local directly from the origin
-            updater = Updater(localrepo, logger=logger)
-            updater.update_from_origin(originrepo, localrepo.present_metadata)
-            return
+        if not args.force_deltas:
+            if origin_real_cost < real_cost:
+                logger.debug("Origin repo is cheaper than deltas")
+                return False
+            if (origin_real_cost * args.max_ratio) < real_cost:
+                logger.debug("Ratio between origin repo and deltas don't fit "
+                             "the set max ratio %s" % args.max_ratio)
+                return False
 
     # Download and apply deltarepos
     updater = Updater(localrepo, logger=logger)
     updater.apply_resolved_path(resolved_path, whitelisted_metadata=whitelisted_metadata)
+    return True
 
 def main(args, logger):
     localrepo = LocalRepo.from_path(args.localrepo[0])
@@ -209,14 +233,26 @@ def main(args, logger):
 
     drmirrors = []
     for mirror_url in args.drmirror:
+        if "://" not in mirror_url:
+            mirror_url = "file://" + os.path.abspath(mirror_url)
         drmirror = DRMirror.from_url(mirror_url)
         drmirrors.append(drmirror)
 
+    updated = False
     if drmirrors:
-        update_with_deltas(args, drmirrors, localrepo, originrepo, logger)
-    else:
-        # TODO: Just download origin repo
-        pass
+        # Try to use deltas
+        updated = update_with_deltas(args, drmirrors, localrepo, originrepo, logger)
+
+    if not updated:
+        if args.delta_or_nothing:
+            logger.debug("Nothing to do - Not updated by deltas and --delta-or-nothing option is used")
+            return False
+
+        # Just download origin repo
+        updater = Updater(localrepo, logger=logger)
+        updater.update_from_origin(originrepo, localrepo.present_metadata)
+
+    return True
 
 if __name__ == "__main__":
     args = parse_options()
@@ -227,12 +263,15 @@ if __name__ == "__main__":
 
     logger = setup_logging(args.quiet, args.verbose)
 
+    updated = False
     try:
-        main(args, logger)
+        updated = main(args, logger)
     except (DeltaRepoError, DeltaRepoPluginError) as err:
         if args.debug:
             raise
         print("Error: {0}".format(err), file=sys.stderr)
         sys.exit(1)
 
-    sys.exit(0)
+    if updated:
+        sys.exit(0)
+    sys.exit(2)  # Repo was not updated

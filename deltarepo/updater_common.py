@@ -185,9 +185,14 @@ class DRMirror(object):
         # Fill and return DRMirror object
         drm = cls()
         drm.url = url               # Url of the mirror
-        drm.records = dr.records    # List of DeltaReposRecords
         drm.deltarepos = dr         # DeltaRepos object
+
+        for record in dr.records:
+            if record.isvalid():
+                drm.records.append(record)
+
         return drm
+
 
 class Link(object):
     """Graph's link (path) = a delta repository
@@ -203,7 +208,7 @@ class Link(object):
     #        return getattr(self.deltareposrecord, item, None)
     #    raise AttributeError("object has no attribute '{0}'".format(item))
 
-    def __repr__(self):
+    def __str__(self):
         return "<LinkMock \'{0}\'->\'{1}\' ({2})>".format(
             self.src, self.dst, self.cost())
 
@@ -292,6 +297,7 @@ class Link(object):
             link = cls()
             link._deltareposrecord = rec
             link._drmirror = drmirror
+            print(repr(link))
             links.append(link)
         return links
 
@@ -394,8 +400,8 @@ class Solver(LoggingInterface):
         graph.graph_from_links(self.links)
 
         if self.source_ch == self.target_ch:
-            raise DeltaRepos("Source and target content hashes are same {0}"
-                             "".format(self.source_ch))
+            raise DeltaRepoError("Source and target content hashes are same {}"
+                                 "".format(self.source_ch))
 
         # Find start and end node in the graph
         source_node = graph.get_node(self.source_ch)
@@ -569,14 +575,22 @@ class Updater(LoggingInterface):
             self.h = h
             self.r = r
 
-    def __init__(self, localrepo, logger=None):
+    def __init__(self, localrepo, logger=None, outputdir=None):
         LoggingInterface.__init__(self, logger)
         self.localrepo = localrepo
+        self.outputdir = outputdir  # In case that result should be
+                                    # writen to different location and
+                                    # localrepo should not be overwritten
 
     def _get_tmpdir(self):
         tmpdir = tempfile.mkdtemp(prefix="deltarepos-", dir="/tmp")
         self._debug("Using temporary directory: {0}".format(tmpdir))
         return tmpdir
+
+    def _get_dst(self):
+        if self.outputdir:
+            return os.path.join(self.outputdir, "repodata")
+        return os.path.join(self.localrepo.path, "repodata")
 
     def _final_move(self, src, dst, name="repodata"):
         # TODO: Try - except and restore original data on error (?)
@@ -632,7 +646,7 @@ class Updater(LoggingInterface):
 
         # Move updated repo to the final destination
         src = os.path.join(tmprepo, "repodata")
-        dst = os.path.join(self.localrepo.path, "repodata")
+        dst = self._get_dst()
         self._final_move(src, dst)
         shutil.rmtree(tmpdir)
 
@@ -645,6 +659,6 @@ class Updater(LoggingInterface):
 
         # Move downloaded repo to the final destination
         src = os.path.join(tmpdir, "repodata")
-        dst = os.path.join(self.localrepo.path, "repodata")
+        dst = self._get_dst()
         self._final_move(src, dst)
         shutil.rmtree(tmpdir)
