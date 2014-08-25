@@ -10,7 +10,8 @@ Copyright (C) 2013   Tomas Mlcoch
 
 import createrepo_c as cr
 from .const import VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH
-from .common import LoggingInterface, calculate_contenthash
+from .common import LoggingInterface
+from .util import calculate_content_hash
 from .plugins_common import Metadata
 from .deltarepos import DeltaRepos, DeltaReposRecord
 from .deltametadata import DeltaMetadata, PluginBundle
@@ -22,7 +23,7 @@ from .errors import DeltaRepoError, DeltaRepoPluginError
 
 __all__ = ['VERSION_MAJOR', 'VERSION_MINOR', 'VERSION_PATCH',
            'VERSION', 'VERBOSE_VERSION',
-           'LoggingInterface', 'calculate_contenthash',
+           'LoggingInterface', 'calculate_content_hash',
            'Metadata',
            'DeltaRepos', 'DeltaReposRecord',
            'DeltaMetadata', 'PluginBundle',

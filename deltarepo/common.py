@@ -43,19 +43,3 @@ class LoggingInterface(object):
 
     def _critical(self, msg):
         self._log(logging.CRITICAL, msg)
-
-def calculate_contenthash(primary_xml_path, contenthash_type="sha256"):
-    pkgids = []
-
-    def pkgcb(pkg):
-        pkgids.append("{0}{1}{2}".format(pkg.pkgId,
-                                         pkg.location_href,
-                                         pkg.location_base or ''))
-
-    cr.xml_parse_primary(primary_xml_path, pkgcb=pkgcb)
-
-    contenthash = hashlib.new(contenthash_type)
-    for pkgid in sorted(pkgids):
-        contenthash.update(pkgid)
-    return contenthash.hexdigest()
-

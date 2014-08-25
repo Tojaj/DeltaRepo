@@ -25,16 +25,13 @@ def pkg_id_str(pkg, logger=None):
 def calculate_content_hash(path_to_primary_xml, type="sha256", logger=None):
     pkg_id_strs = []
 
-    def old_pkgcb(pkg):
+    def pkgcb(pkg):
         pkg_id_strs.append(pkg_id_str(pkg, logger))
 
-    cr.xml_parse_primary(path_to_primary_xml, pkgcb=old_pkgcb, do_files=False)
+    cr.xml_parse_primary(path_to_primary_xml, pkgcb=pkgcb, do_files=False)
 
-    pkg_id_strs.sort()
-
-    packages_hash = []
     h = hashlib.new(type)
-    for i in pkg_id_strs:
+    for i in sorted(pkg_id_strs):
         h.update(i)
     return h.hexdigest()
 
@@ -47,3 +44,14 @@ def size_to_human_readable_str(size_in_bytes):
             return "{0:1.3f} {1}".format(size_in_bytes, x)
         size_in_bytes /= 1024.0
     return "{0:1.3f} {1}".format(size_in_bytes, 'TB')
+
+def compute_file_checksum(path, type="sha256"):
+    """Calculate file checksum"""
+    h = hashlib.new(type)
+    with open(path, "rb") as f:
+        while True:
+            chunk = f.read(1024**2)
+            if not chunk:
+                break
+            h.update(chunk)
+    return h.hexdigest()

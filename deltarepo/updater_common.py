@@ -8,7 +8,8 @@ import tempfile
 import createrepo_c as cr
 from .applicator import DeltaRepoApplicator
 from .deltarepos import DeltaRepos
-from .common import LoggingInterface, calculate_contenthash
+from .common import LoggingInterface
+from .util import calculate_content_hash
 from .errors import DeltaRepoError
 
 class _Repo(object):
@@ -73,7 +74,7 @@ class _Repo(object):
             if not primary_path:
                 raise DeltaRepoError("{0} - primary metadata are missing"
                                      "".format(primary_path))
-            self.contenthash = calculate_contenthash(primary_path, contenthash_type)
+            self.contenthash = calculate_content_hash(primary_path, contenthash_type)
             self.contenthash_type = contenthash_type
 
         self.path = path

@@ -16,6 +16,7 @@ import time
 import librepo
 import hashlib
 import createrepo_c as cr
+from deltarepo.util import compute_file_checksum
 
 here = sys.path[0]
 if here != '/usr/bin':
@@ -102,17 +103,6 @@ def setup_logging(quiet, verbose):
     else:
         logger.setLevel(logging.INFO)
     return logger
-
-def file_checksum(path, type="sha256"):
-    """Calculate file checksum"""
-    h = hashlib.new(type)
-    with open(path, "rb") as f:
-        while True:
-            chunk = f.read(1024**2)
-            if not chunk:
-                break
-            h.update(chunk)
-    return h.hexdigest()
 
 def parse_repomd(path, logger):
     """Get repo data"""
@@ -208,7 +198,7 @@ def deltareposrecord_from_repopath(path, logger, prefix_to_strip=None):
     # Collect info about repomd.xml file of the delta repo
     rec.repomd_timestamp = int(os.path.getmtime(repomd_path))
     rec.repomd_size = os.path.getsize(repomd_path)
-    checksumval = file_checksum(repomd_path)
+    checksumval = compute_file_checksum(repomd_path)
     rec.repomd_checksums = [("sha256", checksumval)]
 
     return rec
@@ -284,7 +274,7 @@ def gen_deltarepos_file(workdir, logger, force=False):
     #os.chdir(cwd)
 
 
-def main(args, logger):
+def main(args, logger)
     if args.gendeltareposfile:
         workdir = args.dirs[0]
         gen_deltarepos_file(workdir, logger, force=args.force)
