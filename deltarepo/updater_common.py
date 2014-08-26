@@ -156,7 +156,7 @@ class OriginRepo(_Repo):
 class DRMirror(object):
     def __init__(self):
         self.url = None
-        self.records = []       # list of DeltaReposRecord
+        self.records = []       # list of DeltaRepoRecord
         self.deltarepos = None  # DeltaRepos object
 
     @classmethod
@@ -176,7 +176,7 @@ class DRMirror(object):
         # Parse deltarepos.xml
         dr = DeltaRepos()
         try:
-            dr.xmlparse(fn)
+            dr.load(fn)
         except DeltaRepoError as e:
             raise DeltaRepoError("Error while parsing deltarepos.xml "
                                  "from {0}: {1}".format(deltarepos_xml_url, e))
@@ -189,7 +189,7 @@ class DRMirror(object):
         drm.deltarepos = dr         # DeltaRepos object
 
         for record in dr.records:
-            if record.isvalid():
+            if record.check():
                 drm.records.append(record)
 
         return drm
@@ -201,7 +201,7 @@ class Link(object):
     """
 
     def __init__(self):
-        self._deltareposrecord = None    # DeltaReposRecord()
+        self._deltareposrecord = None    # DeltaRepoRecord()
         self._drmirror = None            # DRMirror()
 
     #def __getattr__(self, item):

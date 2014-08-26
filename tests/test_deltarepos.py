@@ -1,7 +1,8 @@
 import unittest
 import shutil
 import tempfile
-from deltarepo.deltarepos import DeltaRepos, DeltaReposRecord
+import sys
+from deltarepo.deltarepos import DeltaRepos, DeltaRepoRecord
 
 from .fixtures import *
 
@@ -15,7 +16,6 @@ XML_01 = """<?xml version="1.0" encoding="UTF-8"?>
   <deltarepo>
     <!-- <plugin name="MainDeltaPlugin" contenthash_type="sha256" dst_contenthash="043fds4red" src_contenthash="ei7as764ly"/> -->
     <location href="deltarepos/ei7as764ly-043fds4red" />
-    <size total="15432" />
     <revision src="1387077123" dst="1387087456" />
     <contenthash src="a" dst="b" type="md5" />
     <timestamp src="1387075111" dst="1387086222" />
@@ -40,21 +40,22 @@ class TestCaseDeltaRepos(unittest.TestCase):
 
     def test_dump_empty_deltarepos(self):
         dr = DeltaRepos()
-        content = dr.xmldump()
+        content = dr.dumps()
 
         path = os.path.join(self.tmpdir, "01.xml")
         open(path, "w").write(content)
 
         dr = DeltaRepos()
-        dr.xmlparse(path)
+        dr.load(path)
 
         self.assertEqual(len(dr.records), 0)
 
     def test_dump_deltarepos_01(self):
-        rec = DeltaReposRecord()
+        rec = DeltaRepoRecord()
+
+        self.assertFalse(rec.check())
 
         rec.location_href = "deltarepos/ei7as764ly-043fds4red"
-        rec.size_total = 15432
         rec.revision_src = "1387077123"
         rec.revision_dst = "1387086456"
         rec.contenthash_src = "a"
@@ -69,19 +70,16 @@ class TestCaseDeltaRepos(unittest.TestCase):
         rec.repomd_size = 963
         rec.repomd_checksums = [("sha256", "foobarchecksum")]
 
-        #rec.add_plugin('MainDeltaPlugin', {'src_contenthash': 'ei7as764ly',
-        #                                   'dst_contenthash': '043fds4red',
-        #                                   'contenthash_type': 'sha256'})
+        self.assertTrue(rec.check())
 
         dr = DeltaRepos()
-        dr.add_record(rec)
-        content = dr.xmldump()
+        dr.append_record(rec)
 
-        path = os.path.join(self.tmpdir, "01.xml")
-        open(path, "w").write(content)
+        path = os.path.join(self.tmpdir, "01.xml.xz")
+        dr.dump(path)
 
         dr = DeltaRepos()
-        dr.xmlparse(path)
+        dr.load(path)
 
         self.assertEqual(len(dr.records), 1)
         self.assertEqual(dr.records[0].__dict__, rec.__dict__)
@@ -91,7 +89,7 @@ class TestCaseDeltaRepos(unittest.TestCase):
         open(path, "w").write(XML_EMPTY)
 
         dr = DeltaRepos()
-        dr.xmlparse(path)
+        dr.load(path)
 
         self.assertEqual(len(dr.records), 0)
 
@@ -100,7 +98,7 @@ class TestCaseDeltaRepos(unittest.TestCase):
         open(path, "w").write(XML_01)
 
         dr = DeltaRepos()
-        dr.xmlparse(path)
+        dr.load(path)
 
         self.assertEqual(len(dr.records), 1)
 
@@ -108,7 +106,7 @@ class TestCaseDeltaRepos(unittest.TestCase):
 
         self.assertEqual(rec.location_base, None)
         self.assertEqual(rec.location_href, "deltarepos/ei7as764ly-043fds4red")
-        self.assertEqual(rec.size_total, 15432)
+        self.assertEqual(rec.size_total, 8729)
         self.assertEqual(rec.revision_src, "1387077123")
         self.assertEqual(rec.revision_dst, "1387087456")
         self.assertEqual(rec.timestamp_src, 1387075111)

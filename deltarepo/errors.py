@@ -8,3 +8,7 @@ class DeltaRepoError(Exception):
 class DeltaRepoPluginError(DeltaRepoError):
     """Exception raised by delta plugins of deltarepo library"""
     pass
+
+class DeltaRepoParseError(DeltaRepoError):
+    """Exception raised when a parse error occurs"""
+    pass

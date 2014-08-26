@@ -342,18 +342,11 @@ class DeltaRepoGenerator(LoggingInterface):
 
         # Write out deltametadata.xml
         self.fill_deltametadata()
-        deltametadata_xml = self.deltametadata.xmldump()
         deltametadata_path = os.path.join(self.delta_repodata_path, "deltametadata.xml")
-
-        if (self.compression_type != cr.UNKNOWN_COMPRESSION):
-            deltametadata_path += cr.compression_suffix(self.compression_type)
-            stat = cr.ContentStat(self.checksum_type)
-            f = cr.CrFile(deltametadata_path, cr.MODE_WRITE,
-                          self.compression_type, stat)
-            f.write(deltametadata_xml)
-            f.close()
-        else:
-            open(deltametadata_path, "w").write(deltametadata_xml)
+        stat = cr.ContentStat(self.checksum_type)
+        deltametadata_path = self.deltametadata.dump(deltametadata_path,
+                                compression_type=self.compression_type,
+                                stat=stat)
 
         deltametadata_rec = cr.RepomdRecord("deltametadata", deltametadata_path)
         deltametadata_rec.load_contentstat(stat)

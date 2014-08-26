@@ -1,11 +1,18 @@
 import logging
-import hashlib
 import createrepo_c as cr
+
 
 DEFAULT_CHECKSUM_NAME = "sha256"
 DEFAULT_CHECKSUM_TYPE = cr.SHA256
 DEFAULT_COMPRESSION_TYPE = cr.GZ
 
+# Compression types
+AUTO_DETECT_COMPRESSION = cr.AUTO_DETECT_COMPRESSION
+UNKNOWN_COMPRESSION = cr.UNKNOWN_COMPRESSION
+NO_COMPRESSION = cr.NO_COMPRESSION
+GZ = cr.GZ
+BZ2 = cr.BZ2
+XZ = cr.XZ
 
 class LoggingInterface(object):
     """Base class with logging support.

@@ -16,7 +16,7 @@ import time
 import librepo
 import hashlib
 import createrepo_c as cr
-from deltarepo.util import compute_file_checksum
+from deltarepo.util import compute_file_checksum, isnonnegativeint, deltareposrecord_from_repopath
 
 here = sys.path[0]
 if here != '/usr/bin':
@@ -28,6 +28,7 @@ import deltarepo
 from deltarepo import DeltaRepoError, DeltaRepoPluginError
 
 LOG_FORMAT = "%(message)s"
+
 
 def parse_options():
     parser = argparse.ArgumentParser(description="Manage deltarepos directory.",
@@ -88,9 +89,11 @@ def parse_options():
 
     return args
 
+
 def print_version():
     print("ManageDeltaRepos: {0} (librepo: %s)".format(
             deltarepo.VERBOSE_VERSION, librepo.VERSION))
+
 
 def setup_logging(quiet, verbose):
     logger = logging.getLogger("managedeltarepos")
@@ -103,6 +106,7 @@ def setup_logging(quiet, verbose):
     else:
         logger.setLevel(logging.INFO)
     return logger
+
 
 def parse_repomd(path, logger):
     """Get repo data"""
@@ -126,96 +130,17 @@ def parse_repomd(path, logger):
 
     return yum_repo_dict, yum_repomd_dict
 
-def repo_size(path, logger):
-    """Calculate size of the repository's metadata.
-    """
-
-    yum_repo_dict, yum_repomd_dict = parse_repomd(path, logger)
-
-    total_size = 0
-
-    # Sum the sizes
-    for md_name, details in yum_repomd_dict.items():
-        if not "size" in details or not "size_open" in details:
-            continue
-        if "size" in details:
-            total_size += details["size"]
-        else:
-            total_size += details["size_open"]
-
-    # Get size of the repomd.xml
-    repomd_path = yum_repo_dict.get("repomd")
-    if repomd_path:
-        total_size += os.path.getsize(repomd_path)
-
-    return total_size
-
-def deltareposrecord_from_repopath(path, logger, prefix_to_strip=None):
-    """Create DeltaReposRecord object from a delta repository"""
-
-    # Prepare paths
-    path = os.path.abspath(path)
-    prefix_to_strip = os.path.abspath(prefix_to_strip)
-    stripped_path = path
-    if prefix_to_strip and path.startswith(prefix_to_strip):
-        stripped_path = os.path.relpath(path, prefix_to_strip)
-
-    # Parse repomd.xml of the delta repo
-    repomd_path = os.path.join(path, "repodata/repomd.xml")
-    repomd = cr.Repomd(repomd_path)
-
-    deltametadata_path = None
-    for repomd_rec in repomd.records:
-        if repomd_rec.type == "deltametadata" and repomd_rec.location_href:
-            deltametadata_path = os.path.join(path, repomd_rec.location_href)
-
-    if not deltametadata_path:
-        raise DeltaRepoError("Not a delta repository: {}".format(path))
-
-    # Parse deltametadata.xml of the delta repo
-    dm = deltarepo.DeltaMetadata()
-    dm.xmlparse(deltametadata_path)
-
-    # Prepare DeltaReposRecord aka <deltarepo>
-    rec = deltarepo.DeltaReposRecord()
-    rec.location_base = None
-    rec.location_href = stripped_path
-    rec.size_total = repo_size(path, logger)
-    rec.revision_src = dm.revision_src
-    rec.revision_dst = dm.revision_dst
-    rec.contenthash_src = dm.contenthash_src
-    rec.contenthash_dst = dm.contenthash_dst
-    rec.contenthash_type = dm.contenthash_type
-    rec.timestamp_src = dm.timestamp_src
-    rec.timestamp_dst = dm.timestamp_dst
-
-    # Parepare <data> elements with info about files in the repo
-    for repomd_rec in repomd.records:
-        if not repomd_rec.type:
-            continue
-        rec.set_data(repomd_rec.type, repomd_rec.size)
-
-    # Collect info about repomd.xml file of the delta repo
-    rec.repomd_timestamp = int(os.path.getmtime(repomd_path))
-    rec.repomd_size = os.path.getsize(repomd_path)
-    checksumval = compute_file_checksum(repomd_path)
-    rec.repomd_checksums = [("sha256", checksumval)]
-
-    return rec
 
 def write_deltarepos_file(path, records, append=False):
      # Add the record to the deltarepos.xml
     deltareposxml_path = os.path.join(path, "deltarepos.xml.xz")
     drs = deltarepo.DeltaRepos()
     if os.path.isfile(deltareposxml_path) and append:
-        drs.xmlparse(deltareposxml_path)
+        drs.load(deltareposxml_path)
     for rec in records:
-        drs.add_record(rec)
-    new_content = drs.xmldump()
+        drs.append_record(rec)
+    drs.dump(deltareposxml_path)
 
-    f = cr.CrFile(deltareposxml_path, cr.MODE_WRITE, cr.XZ)
-    f.write(new_content)
-    f.close()
 
 def gen_delta(old_repo_dir, new_repo_dir, logger, deltarepos_dir=None):
     # Use supplied deltarepos_dir or use the current working dir
@@ -241,13 +166,16 @@ def gen_delta(old_repo_dir, new_repo_dir, logger, deltarepos_dir=None):
     shutil.copytree(tmp_dir, dst_dir)
     shutil.rmtree(tmp_dir)
 
-    # Prepare repo's DeltaReposRecord
+    # Prepare repo's DeltaRepoRecord
     rec = deltareposrecord_from_repopath(dst_dir, logger, deltarepos_dir)
 
-    # Add the record to the deltarepos.xml
-    write_deltarepos_file(deltarepos_dir, [rec], append=True)
+    if rec.check():
+        write_deltarepos_file(deltarepos_dir, [rec], append=True)
+    else:
+        logger.warning("Skipped {}: Record is not valid".format(rec.location_href))
 
     return dst_dir
+
 
 def gen_deltarepos_file(workdir, logger, force=False):
     cwd = os.getcwdu()
@@ -268,13 +196,16 @@ def gen_deltarepos_file(workdir, logger, force=False):
                 if not force:
                     #os.chdir(cwd)
                     raise
-            deltareposrecords.append(rec)
+            if rec.check():
+                deltareposrecords.append(rec)
+            else:
+                logger.warning("Skipped {}: Record is not valid".format(rec.location_href))
 
     write_deltarepos_file(workdir, deltareposrecords, append=False)
     #os.chdir(cwd)
 
 
-def main(args, logger)
+def main(args, logger):
     if args.gendeltareposfile:
         workdir = args.dirs[0]
         gen_deltarepos_file(workdir, logger, force=args.force)
@@ -283,6 +214,7 @@ def main(args, logger)
         new_repo_dir = args.dirs[1]
         deltarepos_dir = args.dirs[2] if len(args.dirs) == 3 else None
         gen_delta(old_repo_dir, new_repo_dir, logger, deltarepos_dir=deltarepos_dir)
+
 
 if __name__ == "__main__":
     args = parse_options()
@@ -302,6 +234,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     sys.exit(0)
+
 
 # TODO:
 # - Check for contenthash mishmashes

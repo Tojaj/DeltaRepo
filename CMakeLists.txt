@@ -37,3 +37,5 @@ CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/deltarepo/const.py.in
 #INSTALL(DIRECTORY deltarepo/
 #        DESTINATION ${PYTHON_INSTALL_DIR}/deltarepo
 #        FILES_MATCHING PATTERN "*.py")
+
+ADD_SUBDIRECTORY (doc)

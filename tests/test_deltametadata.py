@@ -37,7 +37,7 @@ class TestCasePluginPersistentConfig(unittest.TestCase):
 
     def test_dump_empty_deltametadata(self):
         dm = DeltaMetadata()
-        content = dm.xmldump()
+        content = dm.dumps()
         self.assertEqual(content, XML_EMPTY)
 
     def test_dump_deltametadata_01(self):
@@ -58,13 +58,13 @@ class TestCasePluginPersistentConfig(unittest.TestCase):
         dm.timestamp_src = 120
         dm.timestamp_dst = 450
         dm.add_pluginbundle(plugin)
-        content = dm.xmldump()
+        content = dm.dumps()
 
         path = os.path.join(self.tmpdir, "01.xml")
         open(path, "w").write(content)
 
         dm_loaded = DeltaMetadata()
-        dm_loaded.xmlparse(path)
+        dm_loaded.load(path)
 
         self.assertEqual(dm.revision_src, dm_loaded.revision_src)
         self.assertEqual(dm.revision_dst, dm_loaded.revision_dst)
@@ -82,7 +82,7 @@ class TestCasePluginPersistentConfig(unittest.TestCase):
         open(path, "w").write(XML_EMPTY)
 
         dm = DeltaMetadata()
-        dm.xmlparse(path)
+        dm.load(path)
 
         self.assertEqual(len(dm.usedplugins), 0)
 
@@ -91,7 +91,7 @@ class TestCasePluginPersistentConfig(unittest.TestCase):
         open(path, "w").write(XML_01)
 
         dm = DeltaMetadata()
-        dm.xmlparse(path)
+        dm.load(path)
 
         self.assertEqual(dm.revision_src, "123")
         self.assertEqual(dm.revision_dst, "456")

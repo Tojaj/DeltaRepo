@@ -124,7 +124,7 @@ class DeltaRepoApplicator(LoggingInterface):
         if "deltametadata" in self.delta_records:
             self.deltametadata_path = os.path.join(self.delta_repo_path,
                                    self.delta_records["deltametadata"].location_href)
-            self.deltametadata.xmlparse(self.deltametadata_path)
+            self.deltametadata.load(self.deltametadata_path)
         else:
             self._warning("\"deltametadata\" record is missing in repomd.xml "\
                           "of delta repo")
