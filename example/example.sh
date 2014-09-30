@@ -15,6 +15,9 @@ cp -r repos/repo3 test/
 
 repoupdater --verbose test/repo1/ $@ --repo "file://$CURRENT_DIR/test/repo3/" --drmirror "file://$CURRENT_DIR/deltarepos/"
 
+echo ""
+echo ""
+
 rm -rf test2/
 mkdir test2/
 cp -r repos/repo1 test2/
@@ -23,4 +26,4 @@ rm -f test2/repo1/repodata/*sqlite*
 rm -f test2/repo1/repodata/*other*
 rm -f test2/repo1/repodata/*foobar*
 
-repoupdater test2/repo1/ --verbose $@ --repo "file://$CURRENT_DIR/test/repo3/" --drmirror "file://$CURRENT_DIR/deltarepos/"
+repoupdater --verbose test2/repo1/ $@ --repo "file://$CURRENT_DIR/test/repo3/" --drmirror "file://$CURRENT_DIR/deltarepos/"

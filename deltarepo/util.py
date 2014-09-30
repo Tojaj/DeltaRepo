@@ -143,3 +143,46 @@ def deltareposrecord_from_repopath(path, prefix_to_strip=None):
     rec.repomd_checksums = [("sha256", checksumval)]
 
     return rec
+
+
+def write_deltarepos_file(path, records, append=False):
+     # Add the record to the deltarepos.xml
+    deltareposxml_path = os.path.join(path, "deltarepos.xml.xz")
+    drs = deltarepo.DeltaRepos()
+    if os.path.isfile(deltareposxml_path) and append:
+        drs.load(deltareposxml_path)
+    for rec in records:
+        drs.append_record(rec)
+    drs.dump(deltareposxml_path)
+
+
+def log_warning(logger, msg):
+    if logger:
+        logger.warning(msg)
+
+
+def gen_deltarepos_file(workdir, logger, force=False):
+
+    deltareposrecords = []
+
+    # Recursivelly walk the directories and search for repositories
+    for root, dirs, files in os.walk(workdir):
+        dirs.sort()
+        if "repodata" in dirs:
+            try:
+                rec = deltareposrecord_from_repopath(root, logger, workdir)
+            except DeltaRepoError as e:
+                msg = "Bad repository {}: {}".format(root, e)
+                logger.warning(msg)
+                if not force:
+                    raise DeltaRepoError(msg)
+
+            if rec.check():
+                deltareposrecords.append(rec)
+            else:
+                msg = "Record for {} is not valid".format(rec.location_href)
+                logger.warning(msg)
+                if not force:
+                    raise DeltaRepoError(msg)
+
+    write_deltarepos_file(workdir, deltareposrecords, append=False)
