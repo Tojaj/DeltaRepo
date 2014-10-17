@@ -89,7 +89,7 @@ def isfloat(num):
     return True
 
 
-def deltareposrecord_from_repopath(path, prefix_to_strip=None):
+def deltareposrecord_from_repopath(path, logger, prefix_to_strip=None):
     """Create DeltaRepoRecord object from a delta repository"""
 
     # Prepare paths
@@ -146,7 +146,7 @@ def deltareposrecord_from_repopath(path, prefix_to_strip=None):
 
 
 def write_deltarepos_file(path, records, append=False):
-     # Add the record to the deltarepos.xml
+    # Add the record to the deltarepos.xml
     deltareposxml_path = os.path.join(path, "deltarepos.xml.xz")
     drs = deltarepo.DeltaRepos()
     if os.path.isfile(deltareposxml_path) and append:
@@ -154,6 +154,7 @@ def write_deltarepos_file(path, records, append=False):
     for rec in records:
         drs.append_record(rec)
     drs.dump(deltareposxml_path)
+    return deltareposxml_path
 
 
 def log_warning(logger, msg):
@@ -161,21 +162,51 @@ def log_warning(logger, msg):
         logger.warning(msg)
 
 
-def gen_deltarepos_file(workdir, logger, force=False):
+def gen_deltarepos_file(workdir, logger, force=False, update=False):
+    """
+    :param workdir: Working directory
+    :param logger: Logger
+    :param force: Ignore bad repository
+    :param update: Only add new repositories, that are not listed
+                   and remove missing ones. (Do not regenerate whole
+                   file from scratch)
+    :return:
+    """
+
+    # XXX: TODO: Add option only_update - to add only missing items
+
+    listed_locations = []
+    encountered_locations = []
+    deltareposxml_path = os.path.join(workdir, "deltarepos.xml.xz")
+
+    logger.debug("Generating {}...".format(deltareposxml_path))
+
+    if update and os.path.exists(deltareposxml_path):
+        drs = deltarepo.DeltaRepos()
+        drs.load(deltareposxml_path)
+        for rec in drs.records:
+            if rec.location_base:
+                continue
+            listed_locations.append(rec.location_href)
 
     deltareposrecords = []
 
+    print listed_locations
     # Recursivelly walk the directories and search for repositories
     for root, dirs, files in os.walk(workdir):
-        dirs.sort()
         if "repodata" in dirs:
+            print root
+            encountered_locations.append(root)
+            if update and root in listed_locations:
+                logger.debug("Already listed - skipping: {}".format(root))
+                continue
             try:
-                rec = deltareposrecord_from_repopath(root, logger, workdir)
+                rec = deltareposrecord_from_repopath(root, logger, prefix_to_strip=workdir)
             except DeltaRepoError as e:
-                msg = "Bad repository {}: {}".format(root, e)
+                msg = "Bad delta repository {}: {}".format(root, e)
                 logger.warning(msg)
                 if not force:
-                    raise DeltaRepoError(msg)
+                    raise
 
             if rec.check():
                 deltareposrecords.append(rec)
@@ -185,4 +216,4 @@ def gen_deltarepos_file(workdir, logger, force=False):
                 if not force:
                     raise DeltaRepoError(msg)
 
-    write_deltarepos_file(workdir, deltareposrecords, append=False)
+    return write_deltarepos_file(workdir, deltareposrecords, append=update)

@@ -298,7 +298,6 @@ class Link(object):
             link = cls()
             link._deltareposrecord = rec
             link._drmirror = drmirror
-            print(repr(link))
             links.append(link)
         return links
 
@@ -506,24 +505,23 @@ class UpdateSolver(LoggingInterface):
                 and repo.contenthash_type == contenthash_type:
             return (repo.contenthash_type, repo.contenthash)
 
-        self._debug('Finding content hash for revision "%s" with ts: %s' % \
+        self._debug('Finding content hash for repository with revision "%s" and timestamp: "%s"' % \
                     (repo.revision, repo.timestamp))
 
         for link in self._links:
-            matches = 0
             if repo.revision and link.revision_src and repo.timestamp and link.timestamp_src:
                 if repo.revision == link.revision_src and repo.timestamp == link.timestamp_src:
                     if link.contenthash_type == contenthash_type:
-                        self._debug("Found %s %s" % (contenthash_type, link.contenthash_src))
+                        self._debug("Content hash found: (%s) %s" % (contenthash_type, link.contenthash_src))
                         return (contenthash_type, link.contenthash_src)
 
             if repo.revision and link.revision_dst and repo.timestamp and link.timestamp_dst:
                 if repo.revision == link.revision_dst and repo.timestamp == link.timestamp_dst:
                     if link.contenthash_type == contenthash_type:
-                        self._debug("Found %s %s" % (contenthash_type, link.contenthash_dst))
+                        self._debug("Content hash found: (%s) %s" % (contenthash_type, link.contenthash_dst))
                         return (contenthash_type, link.contenthash_dst)
 
-        self._debug("Not found")
+        self._debug("Content hash not found")
         # TODO: List all available links (?)
         return (contenthash_type, None)
 
