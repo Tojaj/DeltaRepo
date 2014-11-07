@@ -217,7 +217,8 @@ class DeltaRepoPlugin(LoggingInterface):
             # Or we have both versions of metadata but the metadata are not
             #    same and in that case we simply want to gen a delta as a copy
             if md.old_fn_exists:
-                self._debug("\"{0}\": Newly added in the new version of repodata")
+                self._debug("\"{0}\": Newly added in the new version of repodata"
+                            "".format(md.metadata_type))
             elif not md.old_fn_exists:
                 self._warning("\"{0}\": Delta cannot be generated - old metadata "
                               "are missing - Using copy of the new one"
