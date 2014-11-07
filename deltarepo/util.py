@@ -1,6 +1,7 @@
 import os.path
 import hashlib
 import logging
+import datetime
 import createrepo_c as cr
 
 import deltarepo
@@ -89,6 +90,11 @@ def isfloat(num):
     return True
 
 
+def ts_to_str(ts):
+    """Convert timestamp to string"""
+    return datetime.datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M:%S")
+
+
 def deltareposrecord_from_repopath(path, logger, prefix_to_strip=None):
     """Create DeltaRepoRecord object from a delta repository"""
 
@@ -101,7 +107,10 @@ def deltareposrecord_from_repopath(path, logger, prefix_to_strip=None):
 
     # Parse repomd.xml of the delta repo
     repomd_path = os.path.join(path, "repodata/repomd.xml")
-    repomd = cr.Repomd(repomd_path)
+    try:
+        repomd = cr.Repomd(repomd_path)
+    except IOError as e:
+        raise DeltaRepoError(e.message)
 
     deltametadata_path = None
     for repomd_rec in repomd.records:
@@ -151,7 +160,7 @@ def write_deltarepos_file(path, records, append=False):
     drs = deltarepo.DeltaRepos()
     if os.path.isfile(deltareposxml_path) and append:
         drs.load(deltareposxml_path)
-    for rec in records:
+    for rec in sorted(records, key=lambda x: x.location_href):
         drs.append_record(rec)
     drs.dump(deltareposxml_path)
     return deltareposxml_path
@@ -172,34 +181,34 @@ def gen_deltarepos_file(workdir, logger, force=False, update=False):
                    file from scratch)
     :return:
     """
-
-    # XXX: TODO: Add option only_update - to add only missing items
-
-    listed_locations = []
-    encountered_locations = []
     deltareposxml_path = os.path.join(workdir, "deltarepos.xml.xz")
+    listed_locations = {}
+    records = []
 
     logger.debug("Generating {}...".format(deltareposxml_path))
 
     if update and os.path.exists(deltareposxml_path):
+        logger.debug("Loading previous version of deltarepos.xml.xz...")
         drs = deltarepo.DeltaRepos()
         drs.load(deltareposxml_path)
         for rec in drs.records:
             if rec.location_base:
+                records.append(rec)
                 continue
-            listed_locations.append(rec.location_href)
+            listed_locations[os.path.normpath(rec.location_href)] = rec
 
-    deltareposrecords = []
-
-    print listed_locations
-    # Recursivelly walk the directories and search for repositories
+    dir_prefix_len = len(os.path.normpath(workdir)) + 1
     for root, dirs, files in os.walk(workdir):
+        # Recursivelly walk the directories and search for repositories
+        root = os.path.normpath(root)
         if "repodata" in dirs:
-            print root
-            encountered_locations.append(root)
-            if update and root in listed_locations:
+            relative = root[dir_prefix_len:]
+
+            if update and relative in listed_locations:
                 logger.debug("Already listed - skipping: {}".format(root))
+                records.append(listed_locations[relative])
                 continue
+
             try:
                 rec = deltareposrecord_from_repopath(root, logger, prefix_to_strip=workdir)
             except DeltaRepoError as e:
@@ -207,13 +216,18 @@ def gen_deltarepos_file(workdir, logger, force=False, update=False):
                 logger.warning(msg)
                 if not force:
                     raise
+                continue
+
+            logger.debug("Processing {}".format(root))
 
             if rec.check():
-                deltareposrecords.append(rec)
+                records.append(rec)
             else:
                 msg = "Record for {} is not valid".format(rec.location_href)
                 logger.warning(msg)
                 if not force:
                     raise DeltaRepoError(msg)
 
-    return write_deltarepos_file(workdir, deltareposrecords, append=update)
+    sorted(records, key=lambda x: x.location_href)
+
+    return write_deltarepos_file(workdir, records)
