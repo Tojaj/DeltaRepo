@@ -51,8 +51,7 @@ class DeltaRepoRecord(object):
         return str
 
     def _subelement(self, parent):
-        """
-        Append yourself as a <deltarepo> sub-element to a parent element.
+        """Appends yourself as a <deltarepo> sub-element to a parent element.
 
         :param parent: Parent element
         :type parent: lxml.etree._Element
@@ -114,12 +113,12 @@ class DeltaRepoRecord(object):
 
     @classmethod
     def _from_element(cls, node):
-        """
-        Parse
+        """Parses XML node for delta repo record from deltarepos.xml and returns DeltaRepoRecord object
 
         :param node: Element node <deltarepo>
         :type node: xml.dom.Node
-        :return:
+        :returns: Filled DeltaRepoRecord object
+        :rtype: DeltaRepoRecord
         """
 
         # <deltarepo> element
@@ -174,15 +173,20 @@ class DeltaRepoRecord(object):
 
     @property
     def size_total(self):
+        """Total size of repodata
+
+        :returns: Size that is sum of sizes of all metadata files
+        :return: Int
+        """
         size = self.repomd_size or 0
         for data in self.data.itervalues():
             size += data.get("size", 0)
         return size
 
     def check(self):
-        """
-        Check if all mandatory attributes are filled with reasonable values.
+        """Check if all mandatory attributes are filled with reasonable values.
 
+        :returns: True if all mandatory attributes are filled, False otherwise
         :rtype: bool
         """
         if not self.location_href:
@@ -210,6 +214,7 @@ class DeltaRepoRecord(object):
     def set_data(self, type, size):
         self.data[type] = {"size": int(size)}
 
+
 class DeltaRepos(object):
     """Object representation of deltarepos.xml"""
 
@@ -218,8 +223,7 @@ class DeltaRepos(object):
         """:type: list of :class:`DeltaRepoRecord`"""
 
     def _parse_dom(self, dom):
-        """
-        Parse document object model of deltarepos.xml.
+        """Parse document object model of deltarepos.xml.
 
         :param dom: DOM of deltarepos.xml
         :type dom: xml.dom.minidom.Document
@@ -238,13 +242,18 @@ class DeltaRepos(object):
             self.records.append(rec)
 
     def clear(self):
-        """Clear/Reset object"""
+        """Clear/Reset object
+
+        :returns: Self to enable chaining
+        :rtype DeltaRepos
+        """
         self.records = []
+        return self
 
     def check(self):
-        """
-        Check if all records are valid
+        """Check if all records are valid
 
+        :returns: True if all records are valid, False otherwise
         :rtype: bool
         """
         for rec in self.records:
@@ -253,35 +262,40 @@ class DeltaRepos(object):
         return True
 
     def append_record(self, rec):
-        """
-        Append a DeltaRepoRecord.
+        """Append a DeltaRepoRecord.
 
         :param rec: Record
         :type rec: DeltaRepoRecord
+        :returns: Self to enable chaining (dr = DeltaRepos().append_record(..).append_record(..))
+        :rtype DeltaRepos
         """
         if not isinstance(rec, DeltaRepoRecord):
             raise TypeError("DeltaRepoRecord object expected")
         self.records.append(rec)
+        return self
 
-    def loads(self, xml):
-        """
-        Load metadata from a string.
+    def loads(self, string):
+        """Load metadata from a string.
 
         :param xml: Input data
         :type xml: str
+        :returns: Self to enable chaining (dr = DeltaRepos().loads())
+        :rtype DeltaRepos
         """
-        dom = xml.dom.minidom.parseString(xml)
+        dom = xml.dom.minidom.parseString(string)
         try:
             self._parse_dom(dom)
         except DeltaRepoParseError as err:
             raise DeltaRepoParseError("Cannot parse: {}".format(err))
+        return self
 
     def load(self, fn):
-        """
-        Load metadata from a file.
+        """Load metadata from a file.
 
         :param fn: Path to a file
         :type fn: str
+        :returns: Self to enable chaining (dr = DeltaRepos().load())
+        :rtype DeltaRepos
         """
         _, tmp_path = tempfile.mkstemp()
         cr.decompress_file(fn, tmp_path, cr.AUTO_DETECT_COMPRESSION)
@@ -292,11 +306,12 @@ class DeltaRepos(object):
         except DeltaRepoParseError as err:
             msg = "Cannot parse {}: {}".format(fn, err)
             raise DeltaRepoParseError(msg)
+        return self
 
     def dumps(self):
-        """
-        Dump data to a string.
+        """Dump data to a string.
 
+        :returns: String with XML representation
         :rtype: str
         """
         xmltree = etree.Element("deltarepos")
@@ -306,8 +321,7 @@ class DeltaRepos(object):
                               encoding="UTF-8", xml_declaration=True)
 
     def dump(self, fn, compression_type=deltarepo.XZ, stat=None):
-        """
-        Dump data to a file.
+        """Dump data to a file.
 
         :param fn: path to a file
         :type fn: str
@@ -315,7 +329,7 @@ class DeltaRepos(object):
         :type compression_type: int
         :param stat: Stat object
         :type stat: cr.ContentStat or None
-        :returns: Real used path (basename with compression suffix)
+        :returns: Final path (the used basename with compression suffix)
         :rtype: str
         """
         if (compression_type is None or
@@ -329,7 +343,7 @@ class DeltaRepos(object):
             fn += suffix
 
         content = self.dumps()
-        f = cr.CrFile(fn, cr.MODE_WRITE, cr.XZ)
+        f = cr.CrFile(fn, cr.MODE_WRITE, compression_type)
         f.write(content)
         f.close()
         return fn

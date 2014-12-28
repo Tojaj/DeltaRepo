@@ -134,7 +134,7 @@ def gen_delta(old_repo_dir, new_repo_dir, logger, deltarepos_dir=None):
     shutil.rmtree(tmp_dir)
 
     # Prepare repo's DeltaRepoRecord
-    rec = deltareposrecord_from_repopath(dst_dir, logger, deltarepos_dir)
+    rec = deltareposrecord_from_repopath(dst_dir, deltarepos_dir, logger)
 
     if rec.check():
         write_deltarepos_file(deltarepos_dir, [rec], append=True)

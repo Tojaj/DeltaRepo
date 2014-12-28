@@ -1,7 +1,9 @@
-import unittest
 import shutil
+import unittest
 import tempfile
-import sys
+
+import deltarepo
+from deltarepo import DeltaRepoError
 from deltarepo.deltarepos import DeltaRepos, DeltaRepoRecord
 
 from .fixtures import *
@@ -38,12 +40,18 @@ class TestCaseDeltaRepos(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
-    def test_dump_empty_deltarepos(self):
-        dr = DeltaRepos()
-        content = dr.dumps()
+    def test_dump_and_load_empty_deltarepos_01(self):
+        # Try to dump and load an empty DeltaRepos object (only via memory)
+        content = DeltaRepos().dumps()
+        dr = DeltaRepos().loads(content)
+        self.assertEqual(len(dr.records), 0)
 
-        path = os.path.join(self.tmpdir, "01.xml")
-        open(path, "w").write(content)
+    def test_dump_and_load_empty_deltarepos_02(self):
+        # Try to dump and load an empty DeltaRepos object (via files)
+        path_without_suffix = os.path.join(self.tmpdir, "dump_empty.xml")
+
+        path = DeltaRepos().dump(path_without_suffix)
+        self.assertEqual(path, path_without_suffix+".xz")
 
         dr = DeltaRepos()
         dr.load(path)
@@ -51,10 +59,13 @@ class TestCaseDeltaRepos(unittest.TestCase):
         self.assertEqual(len(dr.records), 0)
 
     def test_dump_deltarepos_01(self):
+        # Ty to dump fully filled DeltaRepos object
         rec = DeltaRepoRecord()
 
+        # An empty record shouldn't be valid
         self.assertFalse(rec.check())
 
+        # Fill the record with valid data
         rec.location_href = "deltarepos/ei7as764ly-043fds4red"
         rec.revision_src = "1387077123"
         rec.revision_dst = "1387086456"
@@ -70,21 +81,67 @@ class TestCaseDeltaRepos(unittest.TestCase):
         rec.repomd_size = 963
         rec.repomd_checksums = [("sha256", "foobarchecksum")]
 
+        # All mandatory arguments should be filled and thus the record should be valid
         self.assertTrue(rec.check())
 
+        # Dump the content to a file
         dr = DeltaRepos()
         dr.append_record(rec)
+        path = dr.dump(os.path.join(self.tmpdir, "dump_01.xml"))
 
-        path = os.path.join(self.tmpdir, "01.xml.xz")
-        dr.dump(path)
-
+        # Load the content
         dr = DeltaRepos()
         dr.load(path)
 
+        # Check the content
         self.assertEqual(len(dr.records), 1)
         self.assertEqual(dr.records[0].__dict__, rec.__dict__)
 
+    def test_dump_and_load_with_different_compressions(self):
+        # Try to dump DeltaRepos with different compression types
+        dr = DeltaRepos()
+        path_without_suffix = os.path.join(self.tmpdir, "dump_with_different_suffixes.xml")
+
+        # Default (XZ)
+        path = dr.dump(path_without_suffix)
+        self.assertTrue(os.path.isfile(path))
+        self.assertEqual(path, path_without_suffix+".xz")
+        DeltaRepos().load(path)  # Exception shouldn't be raised
+
+        # No compression
+        path = dr.dump(path_without_suffix, deltarepo.NO_COMPRESSION)
+        self.assertTrue(os.path.isfile(path))
+        self.assertEqual(path, path_without_suffix)
+        DeltaRepos().load(path)  # Exception shouldn't be raised
+
+        # GZ
+        path = dr.dump(path_without_suffix, deltarepo.GZ)
+        self.assertTrue(os.path.isfile(path))
+        self.assertEqual(path, path_without_suffix+".gz")
+        DeltaRepos().load(path)  # Exception shouldn't be raised
+
+        # BZ2
+        path = dr.dump(path_without_suffix, deltarepo.BZ2)
+        self.assertTrue(os.path.isfile(path))
+        self.assertEqual(path, path_without_suffix+".bz2")
+        DeltaRepos().load(path)  # Exception shouldn't be raised
+
+        # XZ
+        path = dr.dump(path_without_suffix, deltarepo.XZ)
+        self.assertTrue(os.path.isfile(path))
+        self.assertEqual(path, path_without_suffix+".xz")
+        DeltaRepos().load(path)  # Exception shouldn't be raised
+
+        # Error cases
+
+        # Auto-detect compression
+        self.assertRaises(DeltaRepoError, dr.dump, path_without_suffix, deltarepo.AUTO_DETECT_COMPRESSION)
+
+        # Unknown compression
+        self.assertRaises(DeltaRepoError, dr.dump, path_without_suffix, deltarepo.UNKNOWN_COMPRESSION)
+
     def test_parse_empty_deltarepos(self):
+        # Try to parse deltarepos.xml with no items (the deltarepos.xml is valid!)
         path = os.path.join(self.tmpdir, "empty.xml")
         open(path, "w").write(XML_EMPTY)
 
@@ -94,6 +151,7 @@ class TestCaseDeltaRepos(unittest.TestCase):
         self.assertEqual(len(dr.records), 0)
 
     def test_parse_deltarepos_01(self):
+        # Try to parse deltarepos.xml with some content
         path = os.path.join(self.tmpdir, "01.xml")
         open(path, "w").write(XML_01)
 
