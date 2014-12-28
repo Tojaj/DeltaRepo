@@ -156,6 +156,14 @@ def deltareposrecord_from_repopath(path, logger, prefix_to_strip=None):
 
 def write_deltarepos_file(path, records, append=False):
     # Add the record to the deltarepos.xml
+    """Create/Overwrite/Update deltarepos.xml file.
+
+    If the file doesn't exist, it will be created and records will be writen (regardless if append is True or False).
+    If the file exists and append is True, the records will be appended.
+    If the file exists and append is False, its content will be overwritten.
+
+    :param: path: Path to deltarepos.xml.xz file
+    """
     deltareposxml_path = os.path.join(path, "deltarepos.xml.xz")
     drs = deltarepo.DeltaRepos()
     if os.path.isfile(deltareposxml_path) and append:
@@ -172,7 +180,8 @@ def log_warning(logger, msg):
 
 
 def gen_deltarepos_file(workdir, logger, force=False, update=False):
-    """
+    """Generate deltarepos.xml.xz file in the repository
+
     :param workdir: Working directory
     :param logger: Logger
     :param force: Ignore bad repository
