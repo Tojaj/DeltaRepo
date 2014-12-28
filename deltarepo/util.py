@@ -17,8 +17,12 @@ def log(logger, level, msg):
 def pkg_id_str(pkg, logger=None):
     """Return string identifying a package in repodata.
     This strings are used for the RepoId calculation."""
+    if not isinstance(pkg, cr.Package):
+        raise TypeError("A Package object expected")
+
     if not pkg.pkgId:
         log(logger, logging.WARNING, "Missing pkgId in a package!")
+
     if not pkg.location_href:
         log(logger, logging.WARNING, "Missing location_href at "
                                      "package %s %s" % (pkg.name, pkg.pkgId))
@@ -29,15 +33,19 @@ def pkg_id_str(pkg, logger=None):
     return idstr
 
 
-def calculate_content_hash(path_to_primary_xml, type="sha256", logger=None):
+def calculate_content_hash(path_to_primary_xml, checksum_type="sha256", logger=None):
     pkg_id_strs = []
+
+    if checksum_type == "sha":
+        # Classical createrepo says sha but means sha1 - so let's keep things around packaging stack compatible
+        checksum_type = "sha1"
 
     def pkgcb(pkg):
         pkg_id_strs.append(pkg_id_str(pkg, logger))
 
     cr.xml_parse_primary(path_to_primary_xml, pkgcb=pkgcb, do_files=False)
 
-    h = hashlib.new(type)
+    h = hashlib.new(checksum_type)
     for i in sorted(pkg_id_strs):
         h.update(i)
     return h.hexdigest()
@@ -56,6 +64,10 @@ def size_to_human_readable_str(size_in_bytes):
 
 def compute_file_checksum(path, type="sha256"):
     """Calculate file checksum"""
+    if type == "sha":
+        # Classical createrepo says sha but means sha1 - so let's keep things around packaging stack compatible
+        type = "sha1"
+
     h = hashlib.new(type)
     with open(path, "rb") as f:
         while True:
@@ -95,22 +107,28 @@ def ts_to_str(ts):
     return datetime.datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def deltareposrecord_from_repopath(path, logger, prefix_to_strip=None):
-    """Create DeltaRepoRecord object from a delta repository"""
+def deltareposrecord_from_repopath(path, prefix_to_strip=None, logger=None):
+    """Create DeltaRepoRecord object from a delta repository
+
+    :param path: Path to a directory were a deltarepo lives
+    :type path: str
+    :param prefix_to_strip: Path prefix to strip from a path in the record
+    :type prefix_to_strip: str or None
+    :param logger: A logger
+    :type logger: logging.Logger or None
+    """
 
     # Prepare paths
     path = os.path.abspath(path)
-    prefix_to_strip = os.path.abspath(prefix_to_strip)
     stripped_path = path
-    if prefix_to_strip and path.startswith(prefix_to_strip):
-        stripped_path = os.path.relpath(path, prefix_to_strip)
+    if prefix_to_strip:
+        abs_prefix_to_strip = os.path.abspath(prefix_to_strip)
+        if path.startswith(abs_prefix_to_strip):
+            stripped_path = os.path.relpath(path, abs_prefix_to_strip)
 
     # Parse repomd.xml of the delta repo
     repomd_path = os.path.join(path, "repodata/repomd.xml")
-    try:
-        repomd = cr.Repomd(repomd_path)
-    except IOError as e:
-        raise DeltaRepoError(e.message)
+    repomd = cr.Repomd(repomd_path)
 
     deltametadata_path = None
     for repomd_rec in repomd.records:
@@ -219,12 +237,12 @@ def gen_deltarepos_file(workdir, logger, force=False, update=False):
                 continue
 
             try:
-                rec = deltareposrecord_from_repopath(root, logger, prefix_to_strip=workdir)
-            except DeltaRepoError as e:
+                rec = deltareposrecord_from_repopath(root, prefix_to_strip=workdir, logger=logger)
+            except (DeltaRepoError, IOError) as e:
                 msg = "Bad delta repository {}: {}".format(root, e)
                 logger.warning(msg)
                 if not force:
-                    raise
+                    raise DeltaRepoError(msg)
                 continue
 
             logger.debug("Processing {}".format(root))
