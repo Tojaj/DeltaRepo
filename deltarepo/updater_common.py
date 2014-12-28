@@ -27,7 +27,7 @@ class _Repo(object):
         self.present_metadata = []  # Metadata files which really exist in repo
         self._repomd = None          # createrepo_c.Repomd() object
 
-    def _fill_from_repomd_object(self, repomd, check_metadata_presence=False):
+    def _fill_from_repomd_object(self, repomd):
         timestamp = -1
         listed_metadata = []
         for rec in repomd.records:
