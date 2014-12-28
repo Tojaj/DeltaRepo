@@ -16,9 +16,11 @@ class _Repo(object):
     """Base class for LocalRepo and OriginRepo classes."""
 
     def __init__ (self):
-        self.path = None
-        self.timestamp = None
-        self.revision = None
+        self.path = None                    # Path (only for local repo)
+        self.repodata = None                # Path to repodata dir (only for local repo)
+        self.basename = None                # Repo's basename derived from path (only for local repo)
+        self.timestamp = None               # Highest timestamp in the repository
+        self.revision = None                # Revision
         self.contenthash = None             # Calculated content hash
         self.contenthash_type = None        # Type of calculated content hash
         self.repomd_contenthash = None      # Content hash from repomd
@@ -27,9 +29,14 @@ class _Repo(object):
         self.present_metadata = []  # Metadata files which really exist in repo
         self._repomd = None          # createrepo_c.Repomd() object
 
+    def __cmp__(self, other):
+        """Comparison based on timestamp"""
+        cmp(self.timestamp, other.timestamp)
+
     def _fill_from_repomd_object(self, repomd):
-        timestamp = -1
-        listed_metadata = []
+        timestamp = -1          # Highest timestamp
+        listed_metadata = []    # Metadata types listed in the repomd
+
         for rec in repomd.records:
             if rec.timestamp:
                 timestamp = max(timestamp, rec.timestamp)
@@ -41,12 +48,14 @@ class _Repo(object):
         self._repomd = repomd
 
     def _fill_from_path(self, path, contenthash=True, contenthash_type="sha256"):
-        """Fill the repo attributes from a repository specified by path.
-        @param path             path to repository (a dir that contains
-                                repodata/ subdirectory)
-        @param contenthash      calculate content hash? (primary metadata must
-                                be available in the repo)
-        @param contenthash_type type of the calculated content hash
+        """Fill attributes from a repository specified by path.
+
+        :param path: Path to repository (a dir that contains repodata/ subdirectory)
+        :type path: str
+        :param contenthash: Do content hash calculation (primary metadata must be available in the repo)
+        :type contenthash: bool
+        :param contenthash_type: type of the calculated content hash
+        :type contenthash_type: str
         """
 
         if not os.path.isdir(path) or \
@@ -62,6 +71,7 @@ class _Repo(object):
 
         self._fill_from_repomd_object(repomd)
 
+        # Find a primary path
         primary_path = None
         for rec in repomd.records:
             md_path = os.path.join(path, rec.location_href)
@@ -78,6 +88,8 @@ class _Repo(object):
             self.contenthash_type = contenthash_type
 
         self.path = path
+        self.repodata = os.path.join(path, "repodata")
+        self.basename = os.path.basename(path)
 
     def cost(self, whitelisted_metadata=None):
         cost = 0  # TODO: Include size of repomd.xml (?)
@@ -91,6 +103,9 @@ class _Repo(object):
 class LocalRepo(_Repo):
     def __init__ (self):
         _Repo.__init__(self)
+
+    def __repr__(self):
+        return "<LocalRepo {} ({})>".format(self.path, self.timestamp)
 
     @classmethod
     def from_path(cls, path, contenthash_type="sha256", calc_contenthash=True):
@@ -110,6 +125,9 @@ class OriginRepo(_Repo):
         self.urls = []
         self.mirrorlist = None
         self.metalink = None
+
+    def __repr__(self):
+        return "<OriginRepo ({})>".format(self.timestamp)
 
     @classmethod
     def from_url(cls, urls=None, mirrorlist=None, metalink=None):
@@ -137,6 +155,9 @@ class OriginRepo(_Repo):
         repo._fill_from_path(tmpdir, contenthash=False)
 
         repo.path = None
+        repo.repodata = None
+        repo.basename = None
+
         repo.urls = urls
         repo.mirrorlist = mirrorlist
         repo.metalink = metalink
