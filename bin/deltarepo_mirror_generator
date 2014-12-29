@@ -1,0 +1,302 @@
+#!/usr/bin/python
+
+import os
+import sys
+import shutil
+import os.path
+import logging
+import librepo
+import datetime
+import optparse
+import tempfile
+
+here = sys.path[0]
+if here != '/usr/bin':
+    # git checkout
+    toplevel = os.path.dirname(here)
+    sys.path[0] = toplevel
+
+import deltarepo
+from deltarepo.util import gen_deltarepos_file, ts_to_str
+from deltarepo.util import istimeperiod, time_period_to_sec
+from deltarepo.errors import DeltaRepoError
+from deltarepo.cleaners import clear_repos
+from deltarepo.updater_common import LocalRepo
+
+
+# TODO:
+# * Ability to load /etc/yum.repos.d/*.repo configs and
+#   sync repo by label (e.g. "rawhide")
+
+
+class DeltaReposGeneratorError(DeltaRepoError):
+    pass
+
+
+class DeltaMirrorGenerator(object):
+
+    def __init__(self, workdir, deltareposdir, baseurls=None, metalinkurl=None,
+                 mirrorlisturl=None, logger=None):
+        self.logger = logger                #: Logger object
+        self.workdir = workdir              #: (String)
+        self.deltareposdir = deltareposdir  #: (String)
+        self.baseurls = baseurls            #: (List of strings)
+        self.metalinkurl = metalinkurl      #: (String)
+        self.mirrorlisturl = mirrorlisturl  #: (String)
+
+    def _log(self, msg, lvl=logging.INFO):
+        if self.logger:
+            self.logger.log(lvl, msg)
+
+    def _debug(self, msg):
+        if self.logger:
+            self.logger.log(logging.DEBUG, msg)
+
+    def _check_dirs(self):
+        """Check that workdir and deltarepos dir are directories
+        and create them if necessary."""
+        if not os.path.exists(self.workdir):
+            os.mkdir(self.workdir)
+        elif not os.path.isdir(self.workdir):
+            raise DeltaReposGeneratorError("{} is not a directory".format(self.workdir))
+
+        if not os.path.exists(self.deltareposdir):
+            os.mkdir(self.deltareposdir)
+        elif not os.path.isdir(self.deltareposdir):
+            raise DeltaReposGeneratorError("{} is not a directory".format(self.deltareposdir))
+
+    def _get_cached_repos(self):
+        """Get all repositories cached in workdir"""
+        repos = []
+        for item in os.listdir(self.workdir):
+            path = os.path.join(self.workdir, item)
+            if not os.path.isdir(path):
+                continue
+            if not os.path.isdir(os.path.join(path, "repodata")):
+                continue
+            repo = LocalRepo.from_path(path)
+            repos.append(repo)
+        return sorted(repos, key=lambda x: x.timestamp, reverse=True)
+
+    def _download_current(self, local_newest=None):
+
+        def _is_newer(result, local_newest=None):
+            """Compare local newest and origin repo timestamps"""
+            if not local_newest:
+                # No previous repo exists
+                return True
+            origin_ts = result.yum_timestamp
+            local_newest_ts = local_newest.timestamp
+            self._debug("Origin timestamp:               {} ({})".format(
+                origin_ts, ts_to_str(origin_ts)))
+            self._debug("Local most current timestamp:   {} ({})".format(
+                local_newest_ts, ts_to_str(local_newest_ts)))
+            # Compare repo timestamps
+            if origin_ts > local_newest_ts:
+                return True
+            return False
+
+        # Prepare temporary directory
+        destdir = tempfile.mkdtemp(prefix="deltamirrorgen-", dir="/tmp")
+
+        # Download repomd.xml
+        h = librepo.Handle()
+        h.repotype = librepo.YUMREPO
+        h.destdir = destdir
+        h.yumdlist = []  # Download only repomd.xml
+        if self.baseurls:
+            h.urls = self.baseurls
+        if self.metalinkurl:
+            h.metalinkurl = self.metalinkurl
+        if self.mirrorlisturl:
+            h.mirrorlisturl = self.mirrorlisturl
+        self._debug("Downloading repomd.xml of origin repo...")
+        result = h.perform()
+
+        # Compare local newest and origin repo timestamps
+        if not _is_newer(result, local_newest):
+            self._debug("Latest local repo \"{}\" is up to date".format(local_newest.basename))
+            shutil.rmtree(destdir)
+            # Local repo is up to date
+            return None
+
+        # Download rest of the origin repository
+        h.update = True
+        h.yumdlist = None
+        self._debug("Downloading origin repo...")
+        h.perform(result)
+
+        # Move the downloaded repo to the workdir
+        dirname = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+        new_path = os.path.join(self.workdir, dirname)
+        shutil.copytree(destdir, new_path)
+        shutil.rmtree(destdir)
+
+        return new_path
+
+    def _gen_deltarepos(self, current_repo, old_repos, num_deltas=-1):
+        if num_deltas > 0:
+            old_repos = old_repos[:num_deltas]
+
+        for old_repo in old_repos:
+            out_dir = "{}-{}".format(old_repo.basename, current_repo.basename)
+            out_path = os.path.join(self.deltareposdir, out_dir)
+            os.mkdir(out_path)
+            dg = deltarepo.DeltaRepoGenerator(old_repo.path,
+                                              current_repo.path,
+                                              out_path=out_path,
+                                              logger=self.logger)
+                                              #contenthash_type=args.id_type,
+                                              #force_database=args.database,
+                                              #ignore_missing=args.ignore_missing)
+            dg.gen()
+
+    def _regen_deltarepos_xml(self):
+        return gen_deltarepos_file(self.deltareposdir, self.logger, update=True)
+
+    def run(self, num_deltas=-1):
+        # Assure that workdir and deltarepos dir exist
+        self._check_dirs()
+
+        # Get list of cached repositories
+        self._debug("Dir with previous repositories: {}".format(self.workdir))
+        old_repos = self._get_cached_repos()
+        if not old_repos:
+            self._debug("No previous repositories available")
+        else:
+            self._debug("Previous repositories:")
+            for repo in old_repos:
+                self._debug(" {} (Timestamp: {})".format(repo.basename, ts_to_str(repo.timestamp)))
+
+        # Get the newest repository
+        local_newest = old_repos[0] if len(old_repos) else None
+
+        # Get current repository
+        current_path = self._download_current(local_newest)
+        if not current_path:
+            self._log("Local repositories are up to date")
+            return True
+        current_repo = LocalRepo.from_path(current_path)
+
+        # Generate deltarepos
+
+        self._gen_deltarepos(current_repo, old_repos, num_deltas=num_deltas)
+
+        # Regenerate deltarepos.xml
+        fn = self._regen_deltarepos_xml()
+        self._debug("Regenerated {}".format(fn))
+
+    def clear_workdir(self, max_num=None, max_age=None):
+        if max_num:
+            max_num = int(max_num)
+        if max_age:
+            max_age = time_period_to_sec(max_age)
+        clear_repos(self.workdir,
+                    max_num=max_num,
+                    max_age=max_age,
+                    logger=self.logger)
+
+    def clear_deltarepos(self, max_num=None, max_age=None):
+        if max_num:
+            max_num = int(max_num)
+        if max_age:
+            max_age = time_period_to_sec(max_age)
+        clear_repos(self.deltareposdir,
+                    max_num=max_num,
+                    max_age=max_age,
+                    logger=self.logger)
+
+
+def main():
+    parser = optparse.OptionParser(usage="%(prog)s WORKDIR DELTAREPOSDIR [--metalink METALINKURL] [--mirrorlist MIRRORLISTURL] [BASEURL ...]")
+
+    parser.add_option("--metalink",
+                      metavar="METALINKURL",
+                      help="Metalink URL of the mirrored repository"
+    )
+    parser.add_option("--mirrorlist",
+                      metavar="MIRRORLISTURL",
+                      help="Mirrorlist URL of the mirrored repository"
+    )
+    parser.add_option("-n", "--num-deltas",
+                      metavar="NUM_DELTAS",
+                      default=3,
+                      type="int",
+                      help="Number of deltas generated for the latest "
+                           "revision of metadata"
+    )
+    parser.add_option("-v", "--verbose",
+                      action="store_true",
+                      help="Verbose output"
+    )
+
+    group = optparse.OptionGroup(parser,
+                                 "Purging/Retaining options",
+                                 "Options to configure retention of old data")
+    group.add_option("--max-num-revisions",
+                     metavar="NUM",
+                     type="int",
+                     default=10,
+                     help="Maximum number of retained old revisions of a repo"
+    )
+    group.add_option("--max-revision-age",
+                     metavar="AGE",
+                     default='-1',
+                     help="Maximum age of a retained revision of a repo"
+    )
+    group.add_option("--max-num-deltarepos",
+                     metavar="NUM",
+                     default=100,
+                     type="int",
+                     help="Maximum number of retained deltarepos"
+    )
+    group.add_option("--max-deltarepo-age",
+                     metavar="AGE",
+                     default='-1',
+                     help="Maximum age of a retained deltarepo"
+    )
+
+    parser.add_option_group(group)
+
+    # Parse command line arguments
+    options, args = parser.parse_args()
+
+    # Check the arguments
+    if len(args) < 2:
+        parser.error("Bad arguments")
+
+    if not options.metalink and not options.mirrorlist and len(args) < 3:
+        parser.error("Address of origin repo is not specified")
+
+    if not istimeperiod(options.max_revision_age):
+        parser.error("Not a time period '{}'".format(options.max_revision_age))
+
+    if not istimeperiod(options.max_deltarepo_age):
+        parser.error("Not a time period '{}'".format(options.max_deltarepo_age))
+
+    # Setup logging
+    logger = logging.getLogger("deltarepo_mirror_generator")
+    logger.addHandler(logging.StreamHandler())
+    if options.verbose:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+
+    # Do all the stuff
+    generator = DeltaMirrorGenerator(args[0],
+                                     args[1],
+                                     baseurls=args[2:],
+                                     metalinkurl=options.metalink,
+                                     mirrorlisturl=options.mirrorlist,
+                                     logger=logger)
+    generator.run(num_deltas=options.num_deltas)
+
+    # Clear working directory and deltarepos
+    generator.clear_workdir(max_num=options.max_num_revisions,
+                            max_age=options.max_revision_age)
+    generator.clear_deltarepos(max_num=options.max_num_deltarepos,
+                               max_age=options.max_deltarepo_age)
+
+
+if __name__ == "__main__":
+    main()
