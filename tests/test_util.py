@@ -7,6 +7,7 @@ import createrepo_c as cr
 
 from deltarepo.util import pkg_id_str
 from deltarepo.util import calculate_content_hash
+from deltarepo.util import time_period_to_sec
 from deltarepo.util import compute_file_checksum
 from deltarepo.util import deltareposrecord_from_repopath
 from deltarepo.util import gen_deltarepos_file
@@ -14,14 +15,8 @@ from deltarepo.errors import DeltaRepoError
 from deltarepo.deltarepos import DeltaRepos
 
 import fixtures
+from fixtures import cp
 from fixtures import *
-
-
-def cp(src, dst):
-    """Copy helper for this unittest"""
-    final_dst = os.path.join(dst, os.path.basename(src))
-    shutil.copytree(src, final_dst)
-    return final_dst
 
 
 class TestCasePackageIdString(unittest.TestCase):
@@ -109,6 +104,25 @@ class TestCaseContentHashCalculation(unittest.TestCase):
         ch = calculate_content_hash(fixtures.DELTAREPOS_01)
         self.assertEqual(ch, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
+
+class TestCaseTimePeriodToSec(unittest.TestCase):
+    """Tests for util.time_period_to_sec function"""
+
+    def test_timeperiodtosec(self):
+        self.assertEqual(time_period_to_sec('-1'), -1)
+        self.assertEqual(time_period_to_sec('-2'), -1)
+        self.assertEqual(time_period_to_sec('0'), 0)
+        self.assertEqual(time_period_to_sec('2'), 2)
+        self.assertEqual(time_period_to_sec('2s'), 2)
+        self.assertEqual(time_period_to_sec('2m'), 2*60)
+        self.assertEqual(time_period_to_sec('2h'), 2*60*60)
+        self.assertEqual(time_period_to_sec('2d'), 2*24*60*60)
+
+        self.assertRaises(TypeError, time_period_to_sec, None)
+        self.assertRaises(ValueError, time_period_to_sec, "")
+        self.assertRaises(ValueError, time_period_to_sec, "abc")
+        self.assertRaises(ValueError, time_period_to_sec, "4c")
+        self.assertRaises(ValueError, time_period_to_sec, "-")
 
 class TestCaseComputeFileChecksum(unittest.TestCase):
     """Tests for util.compute_file_checksum function"""

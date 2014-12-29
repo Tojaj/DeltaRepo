@@ -1,3 +1,4 @@
+import shutil
 import os.path
 
 # testdata/
@@ -28,3 +29,10 @@ REPO_01_PATH = os.path.join(TEST_DATA_PATH, "repo_01")
 REPO_01_PRIMARY = os.path.join(REPO_01_PATH, "repodata", "341297672077ef71a5f8db569932d20975e906f192986cdfa8ab535f0c224d4d-primary.xml.gz")
 REPO_02_PATH = os.path.join(TEST_DATA_PATH, "repo_02")
 REPO_02_PRIMARY = os.path.join(REPO_02_PATH, "repodata", "a7715505059733a63c49e66fffc7cf3aee6217ae05bede274a2b3e3e143de7c6-primary.xml.gz")
+
+
+def cp(src, dst):
+    """Copy helper for this unittest"""
+    final_dst = os.path.join(dst, os.path.basename(src))
+    shutil.copytree(src, final_dst)
+    return final_dst
