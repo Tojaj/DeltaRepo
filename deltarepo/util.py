@@ -212,6 +212,14 @@ def isfloat(num):
     return True
 
 
+def istimeperiod(s):
+    try:
+        time_period_to_sec(s)
+    except ValueError, TypeError:
+        return False
+    return True
+
+
 def ts_to_str(ts):
     """Convert timestamp to string"""
     return datetime.datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M:%S")
