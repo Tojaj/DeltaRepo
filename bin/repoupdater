@@ -52,16 +52,15 @@ def parse_options():
                         help="Target content hash (if no --repo(mirrorlist|metalink)? used)")
     parser.add_argument("--target-contenthash-type", default="sha256",
                         help="Type of target content hash. 'sha256' is default value.")
-    parser.add_argument("--update-only-present", action="store_true",
+    parser.add_argument("--update-only-available", action="store_true",
                         help="Update only metadata that are present in current repo. "
                              "(Newly added metadata will not be downloaded, missing "
                              "metadata will be ignored)")
     parser.add_argument("--force-deltas", action="store_true",
-                        help="Always use deltas. Origin repo use only to determine "
-                             "target content hash.")
+                        help="Always use deltas. Original repo will be used only to determine "
+                             "the target content hash.")
     parser.add_argument("--delta-or-nothing", action="store_true",
-                        help="If deltas are smaller than origin repo use deltas, "
-                             "if not don't do nothing.")
+                        help="If deltas are smaller than origin repo use deltas, do nothing otherwise")
     parser.add_argument("--max-ratio",
                         help="Maximal DeltaSize/OriginSize ratio for using "
                               "delta. (Default %s)" % MAX_RATIO,
@@ -137,7 +136,7 @@ def setup_logging(quiet, verbose):
 
 def update_with_deltas(args, drmirros, localrepo, originrepo, logger):
     whitelisted_metadata = None
-    if args.update_only_present:
+    if args.update_only_available:
         whitelisted_metadata = needed_delta_metadata(localrepo.present_metadata)
         logger.debug("Using metadata whitelist")
         logger.debug("Locally available metadata: {0}".format(localrepo.present_metadata))
