@@ -40,26 +40,23 @@ class DeltaRepoRecord(object):
         self.repomd_checksums = []  # [('type', 'value'), ...]
 
     def __repr__(self):
-        str = "<DeltaRepoRecord:\n"
+        strrepr = "<DeltaRepoRecord:\n"
         for key, val in self.__dict__.iteritems():
             if key.startswith("_"):
                 continue
             if key == "data":
                 continue
-            str += "  {}: {}\n".format(key, val)
-        str += ">"
-        return str
+            strrepr += "  {}: {}\n".format(key, val)
+        strrepr += ">"
+        return strrepr
 
-    def _subelement(self, parent):
-        """Appends yourself as a <deltarepo> sub-element to a parent element.
+    def _to_xml_element(self):
+        """Dump yourself to xml Element
 
-        :param parent: Parent element
-        :type parent: lxml.etree._Element
+        :returns: Self representation as an xml element
+        :rtype: lxml.etree.Element
         """
-
-        attrs = {}
-
-        deltarepo_el = etree.SubElement(parent, "deltarepo", attrs)
+        deltarepo_el = etree.Element("deltarepo")
 
         # <location>
         if self.location_href:
@@ -111,55 +108,52 @@ class DeltaRepoRecord(object):
             checksum_el = etree.SubElement(repomd_el, "checksum", {"type": type})
             checksum_el.text = str(value)
 
-    @classmethod
-    def _from_element(cls, node):
-        """Parses XML node for delta repo record from deltarepos.xml and returns DeltaRepoRecord object
+        return deltarepo_el
+
+    def _from_xml_element(self, node):
+        """Fill yourself from <deltarepo> xml element
 
         :param node: Element node <deltarepo>
-        :type node: xml.dom.Node
+        :type node: xml.dom.minidom.Element
         :returns: Filled DeltaRepoRecord object
         :rtype: DeltaRepoRecord
         """
-
-        # <deltarepo> element
-        rec = cls()
-
         subnode = getRequiredNode(node, "location")
-        rec.location_base = getAttribute(subnode, "base")
-        rec.location_href = getRequiredAttribute(subnode, "href")
+        self.location_base = getAttribute(subnode, "base")
+        self.location_href = getRequiredAttribute(subnode, "href")
 
         subnode = getNode(node, "revision")
         if subnode:
-            rec.revision_src = getAttribute(subnode, "src")
-            rec.revision_dst = getAttribute(subnode, "dst")
+            self.revision_src = getAttribute(subnode, "src")
+            self.revision_dst = getAttribute(subnode, "dst")
 
         subnode = getNode(node, "contenthash")
         if subnode:
-            rec.contenthash_src = getAttribute(subnode, "src")
-            rec.contenthash_dst = getAttribute(subnode, "dst")
-            rec.contenthash_type = getAttribute(subnode, "type")
+            self.contenthash_src = getAttribute(subnode, "src")
+            self.contenthash_dst = getAttribute(subnode, "dst")
+            self.contenthash_type = getAttribute(subnode, "type")
 
         subnode = getNode(node, "timestamp")
         if subnode:
-            rec.timestamp_src = getNumAttribute(subnode, "src")
-            rec.timestamp_dst = getNumAttribute(subnode, "dst")
+            self.timestamp_src = getNumAttribute(subnode, "src")
+            self.timestamp_dst = getNumAttribute(subnode, "dst")
 
         subnodes = node.getElementsByTagName("data") or []
         for subnode in subnodes:
             type = getAttribute(subnode, "type")
             size= getNumAttribute(subnode, "size")
-            rec.set_data(type, size)
+            self.set_data(type, size)
 
         # <repomd>
         repomdnode = getNode(node, "repomd")
         if repomdnode:
             subnode = getNode(repomdnode, "timestamp")
             if subnode and getValue(subnode):
-                rec.repomd_timestamp = int(getValue(subnode))
+                self.repomd_timestamp = int(getValue(subnode))
 
             subnode = getNode(repomdnode, "size")
             if subnode and getValue(subnode):
-                rec.repomd_size = int(getValue(subnode))
+                self.repomd_size = int(getValue(subnode))
 
             checksumnodes = repomdnode.getElementsByTagName("checksum")
             if checksumnodes:
@@ -167,9 +161,9 @@ class DeltaRepoRecord(object):
                     type = getAttribute(subnode, "type")
                     val = getValue(subnode)
                     if type and val:
-                        rec.repomd_checksums.append((type, val))
+                        self.repomd_checksums.append((type, val))
 
-        return rec
+        return self
 
     @property
     def size_total(self):
@@ -204,8 +198,18 @@ class DeltaRepoRecord(object):
         for data_dict in self.data.itervalues():
             if not isnonnegativeint(data_dict.get("size")):
                 return False
+
+        if not isnonnegativeint(self.repomd_timestamp):
+            return False
         if not isnonnegativeint(self.repomd_size):
             return False
+
+        for data in self.data.itervalues():
+            if "size" not in data:
+                return False
+            if not isnonnegativeint(data.get("size")):
+                return False
+
         return True
 
     def get_data(self, type):
@@ -222,30 +226,54 @@ class DeltaRepos(object):
         self.records = []
         """:type: list of :class:`DeltaRepoRecord`"""
 
-    def _parse_dom(self, dom):
+    def _to_xml_element(self):
+        """Dump yourself to xml Element
+
+        :returns: Self representation as an xml element
+        :rtype: lxml.etree.Element
+        """
+        deltarepos_el = etree.Element("deltarepos")
+        for rec in self.records:
+            deltarepos_el.append(rec._to_xml_element())
+        return deltarepos_el
+
+    def _from_xml_element(self, deltarepos_element, pedantic=False):
+        """Parse <deltarepos> XML element
+
+        :param deltarepos_element: <deltarepos> xml element
+        :type deltarepos_element: xml.dom.minidom.Element
+        :param pedantic: Fail if a record is not valid
+        :type pedantic: bool
+        :returns: Self to enable chaining
+        :rtype: DeltaRepos
+        """
+        for elem in deltarepos_element.getElementsByTagName("deltarepo"):
+            rec = DeltaRepoRecord()._from_xml_element(elem)
+            if pedantic and not rec.check():
+                raise DeltaRepoParseError("A record for {} is not valid".format(rec.location_href))
+            self.records.append(rec)
+        return self
+
+    def _from_xml_document(self, dom, pedantic=False):
         """Parse document object model of deltarepos.xml.
 
         :param dom: DOM of deltarepos.xml
         :type dom: xml.dom.minidom.Document
+        :param pedantic: Fail if a record is not valid
+        :type pedantic: bool
+        :returns: Self to enable chaining
+        :rtype: DeltaRepos
         """
-
-        # <deltarepos> element
-        elist_deltarepos = dom.getElementsByTagName("deltarepos")
-        if not elist_deltarepos or not elist_deltarepos[0]:
-            raise DeltaRepoParseError("No <deltarepos> element in deltarepos xml")
-
-        # <deltarepo> elements
-        for node in elist_deltarepos[0].childNodes:
-            if node.nodeType != node.ELEMENT_NODE or node.nodeName != "deltarepo":
-                continue
-            rec = DeltaRepoRecord._from_element(node)
-            self.records.append(rec)
+        deltarepos = dom.getElementsByTagName("deltarepos")
+        if not deltarepos:
+            raise DeltaRepoParseError("No <deltarepos> element in xml")
+        return self._from_xml_element(deltarepos[0], pedantic=pedantic)
 
     def clear(self):
         """Clear/Reset object
 
         :returns: Self to enable chaining
-        :rtype DeltaRepos
+        :rtype: DeltaRepos
         """
         self.records = []
         return self
@@ -261,51 +289,63 @@ class DeltaRepos(object):
                 return False
         return True
 
-    def append_record(self, rec):
+    def append_record(self, rec, force=False):
         """Append a DeltaRepoRecord.
 
         :param rec: Record
         :type rec: DeltaRepoRecord
-        :returns: Self to enable chaining (dr = DeltaRepos().append_record(..).append_record(..))
-        :rtype DeltaRepos
+        :param force: Ignore that record is not valid
+                      (all mandatory attributes are not filled)
+        :type force: bool
+        :returns: Self to enable chaining
+        :rtype: DeltaRepos
         """
         if not isinstance(rec, DeltaRepoRecord):
             raise TypeError("DeltaRepoRecord object expected")
+
+        if not rec.check() and not force:
+            raise DeltaRepoError("DeltaRepoRecord is not valid")
+
         self.records.append(rec)
         return self
 
-    def loads(self, string):
+    def loads(self, string, pedantic=False):
         """Load metadata from a string.
 
         :param xml: Input data
         :type xml: str
+        :param pedantic: Raise exception if there is an invalid record
+                         (a record that doesn't contain all mandatory info)
+        :type pedantic: bool
         :returns: Self to enable chaining (dr = DeltaRepos().loads())
-        :rtype DeltaRepos
+        :rtype: DeltaRepos
         """
-        dom = xml.dom.minidom.parseString(string)
+        document = xml.dom.minidom.parseString(string)
         try:
-            self._parse_dom(dom)
-        except DeltaRepoParseError as err:
+            self._from_xml_document(document, pedantic=pedantic)
+        except DeltaRepoError as err:
             raise DeltaRepoParseError("Cannot parse: {}".format(err))
         return self
 
-    def load(self, fn):
+    def load(self, fn, pedantic=False):
         """Load metadata from a file.
 
         :param fn: Path to a file
         :type fn: str
+        :param pedantic: Raise exception if there is an invalid record
+                         (a record that doesn't contain all mandatory info)
+        :type pedantic: bool
         :returns: Self to enable chaining (dr = DeltaRepos().load())
-        :rtype DeltaRepos
+        :rtype: DeltaRepos
         """
-        _, tmp_path = tempfile.mkstemp()
+        _, tmp_path = tempfile.mkstemp(prefix="tmp-deltarepos-xml-file-")
         cr.decompress_file(fn, tmp_path, cr.AUTO_DETECT_COMPRESSION)
-        dom = xml.dom.minidom.parse(tmp_path)
+        document = xml.dom.minidom.parse(tmp_path)
         os.remove(tmp_path)
         try:
-            self._parse_dom(dom)
-        except DeltaRepoParseError as err:
-            msg = "Cannot parse {}: {}".format(fn, err)
-            raise DeltaRepoParseError(msg)
+            self._from_xml_document(document, pedantic=pedantic)
+        except DeltaRepoError as err:
+            raise DeltaRepoParseError("Cannot parse {}: {}".format(fn, err))
         return self
 
     def dumps(self):
@@ -314,11 +354,11 @@ class DeltaRepos(object):
         :returns: String with XML representation
         :rtype: str
         """
-        xmltree = etree.Element("deltarepos")
-        for rec in self.records:
-            rec._subelement(xmltree)
-        return etree.tostring(xmltree, pretty_print=True,
-                              encoding="UTF-8", xml_declaration=True)
+        xmltree = self._to_xml_element()
+        return etree.tostring(xmltree,
+                              pretty_print=True,
+                              encoding="UTF-8",
+                              xml_declaration=True)
 
     def dump(self, fn, compression_type=deltarepo.XZ, stat=None):
         """Dump data to a file.
