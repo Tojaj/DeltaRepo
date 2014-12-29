@@ -157,14 +157,14 @@ def time_period_to_sec(s):
         n = s[:-1]
         unit = s[-1].lower()
         if unit not in MULTS:
-            raise ValueError("Unknown unit '{}'".format(unit))
+            raise ValueError("Unknown unit '{0}'".format(unit))
 
     mult = MULTS.get(unit)
 
     try:
         n = float(n)
     except (ValueError, TypeError):
-        raise ValueError("Invalid value: {}".format(n))
+        raise ValueError("Invalid value: {0}".format(n))
 
     if n < 0:
         return -1
@@ -254,7 +254,7 @@ def deltareposrecord_from_repopath(path, prefix_to_strip=None, logger=None):
             deltametadata_path = os.path.join(path, repomd_rec.location_href)
 
     if not deltametadata_path:
-        raise DeltaRepoError("Not a delta repository: {}".format(path))
+        raise DeltaRepoError("Not a delta repository: {0}".format(path))
 
     # Parse deltametadata.xml of the delta repo
     dm = deltarepo.DeltaMetadata()
@@ -325,7 +325,7 @@ def gen_deltarepos_file(workdir, logger, force=False, update=False):
     listed_locations = {}
     records = []
 
-    logger.debug("Generating {}...".format(deltareposxml_path))
+    logger.debug("Generating {0}...".format(deltareposxml_path))
 
     if update and os.path.exists(deltareposxml_path):
         logger.debug("Loading previous version of deltarepos.xml.xz...")
@@ -345,25 +345,25 @@ def gen_deltarepos_file(workdir, logger, force=False, update=False):
             relative = root[dir_prefix_len:]
 
             if update and relative in listed_locations:
-                logger.debug("Already listed - skipping: {}".format(root))
+                logger.debug("Already listed - skipping: {0}".format(root))
                 records.append(listed_locations[relative])
                 continue
 
             try:
                 rec = deltareposrecord_from_repopath(root, prefix_to_strip=workdir, logger=logger)
             except (DeltaRepoError, IOError) as e:
-                msg = "Bad delta repository {}: {}".format(root, e)
+                msg = "Bad delta repository {0}: {1}".format(root, e)
                 logger.warning(msg)
                 if not force:
                     raise DeltaRepoError(msg)
                 continue
 
-            logger.debug("Processing {}".format(root))
+            logger.debug("Processing {0}".format(root))
 
             if rec.check():
                 records.append(rec)
             else:
-                msg = "Record for {} is not valid".format(rec.location_href)
+                msg = "Record for {0} is not valid".format(rec.location_href)
                 logger.warning(msg)
                 if not force:
                     raise DeltaRepoError(msg)

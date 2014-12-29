@@ -105,7 +105,7 @@ class LocalRepo(_Repo):
         _Repo.__init__(self)
 
     def __repr__(self):
-        return "<LocalRepo {} ({})>".format(self.path, self.timestamp)
+        return "<LocalRepo {0} ({1})>".format(self.path, self.timestamp)
 
     @classmethod
     def from_path(cls, path, contenthash_type="sha256", calc_contenthash=True):
@@ -127,7 +127,7 @@ class OriginRepo(_Repo):
         self.metalink = None
 
     def __repr__(self):
-        return "<OriginRepo ({})>".format(self.timestamp)
+        return "<OriginRepo ({0})>".format(self.timestamp)
 
     @classmethod
     def from_url(cls, urls=None, mirrorlist=None, metalink=None):
@@ -421,7 +421,7 @@ class Solver(LoggingInterface):
         graph.graph_from_links(self.links)
 
         if self.source_ch == self.target_ch:
-            raise DeltaRepoError("Source and target content hashes are same {}"
+            raise DeltaRepoError("Source and target content hashes are same {0}"
                                  "".format(self.source_ch))
 
         # Find start and end node in the graph

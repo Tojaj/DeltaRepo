@@ -25,16 +25,16 @@ def clear_repos(workdir, max_num=None, max_age=None, logger=None):
 
     # Checking input arguments
     if not isinstance(max_num, (types.NoneType, numbers.Number)):
-        raise TypeError("Number or None expected got '{}'".format(type(max_num)))
+        raise TypeError("Number or None expected got '{0}'".format(type(max_num)))
 
     if not isinstance(max_age, (types.NoneType, numbers.Number)):
-        raise TypeError("Number or None expected got '{}'".format(type(max_age)))
+        raise TypeError("Number or None expected got '{0}'".format(type(max_age)))
 
     if (max_num is None or max_num < 0) and (max_age is None or max_age < 0):
         return
 
     if not os.path.isdir:
-        raise IOError("Not a directory '{}'".format(workdir))
+        raise IOError("Not a directory '{0}'".format(workdir))
 
     # Listing of all available repositories in the workdir
     available_repos = []
@@ -63,8 +63,8 @@ def clear_repos(workdir, max_num=None, max_age=None, logger=None):
 
     # Removing the repositories
     if to_be_removed:
-        log_info(logger, "Clearing of {}".format(workdir))
+        log_info(logger, "Clearing of {0}".format(workdir))
 
     for repo in sorted(to_be_removed, key=lambda x: x.timestamp, reverse=True):
-        log_info(logger, "Removing: {}".format(repo.path))
+        log_info(logger, "Removing: {0}".format(repo.path))
         shutil.rmtree(repo.path)

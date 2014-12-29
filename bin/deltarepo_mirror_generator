@@ -58,12 +58,12 @@ class DeltaMirrorGenerator(object):
         if not os.path.exists(self.workdir):
             os.mkdir(self.workdir)
         elif not os.path.isdir(self.workdir):
-            raise DeltaReposGeneratorError("{} is not a directory".format(self.workdir))
+            raise DeltaReposGeneratorError("{0} is not a directory".format(self.workdir))
 
         if not os.path.exists(self.deltareposdir):
             os.mkdir(self.deltareposdir)
         elif not os.path.isdir(self.deltareposdir):
-            raise DeltaReposGeneratorError("{} is not a directory".format(self.deltareposdir))
+            raise DeltaReposGeneratorError("{0} is not a directory".format(self.deltareposdir))
 
     def _get_cached_repos(self):
         """Get all repositories cached in workdir"""
@@ -87,9 +87,9 @@ class DeltaMirrorGenerator(object):
                 return True
             origin_ts = result.yum_timestamp
             local_newest_ts = local_newest.timestamp
-            self._debug("Origin timestamp:               {} ({})".format(
+            self._debug("Origin timestamp:               {0} ({1})".format(
                 origin_ts, ts_to_str(origin_ts)))
-            self._debug("Local most current timestamp:   {} ({})".format(
+            self._debug("Local most current timestamp:   {0} ({1})".format(
                 local_newest_ts, ts_to_str(local_newest_ts)))
             # Compare repo timestamps
             if origin_ts > local_newest_ts:
@@ -115,7 +115,7 @@ class DeltaMirrorGenerator(object):
 
         # Compare local newest and origin repo timestamps
         if not _is_newer(result, local_newest):
-            self._debug("Latest local repo \"{}\" is up to date".format(local_newest.basename))
+            self._debug("Latest local repo \"{0}\" is up to date".format(local_newest.basename))
             shutil.rmtree(destdir)
             # Local repo is up to date
             return None
@@ -139,7 +139,7 @@ class DeltaMirrorGenerator(object):
             old_repos = old_repos[:num_deltas]
 
         for old_repo in old_repos:
-            out_dir = "{}-{}".format(old_repo.basename, current_repo.basename)
+            out_dir = "{0}-{1}".format(old_repo.basename, current_repo.basename)
             out_path = os.path.join(self.deltareposdir, out_dir)
             os.mkdir(out_path)
             dg = deltarepo.DeltaRepoGenerator(old_repo.path,
@@ -159,14 +159,14 @@ class DeltaMirrorGenerator(object):
         self._check_dirs()
 
         # Get list of cached repositories
-        self._debug("Dir with previous repositories: {}".format(self.workdir))
+        self._debug("Dir with previous repositories: {0}".format(self.workdir))
         old_repos = self._get_cached_repos()
         if not old_repos:
             self._debug("No previous repositories available")
         else:
             self._debug("Previous repositories:")
             for repo in old_repos:
-                self._debug(" {} (Timestamp: {})".format(repo.basename, ts_to_str(repo.timestamp)))
+                self._debug(" {0} (Timestamp: {1})".format(repo.basename, ts_to_str(repo.timestamp)))
 
         # Get the newest repository
         local_newest = old_repos[0] if len(old_repos) else None
@@ -184,7 +184,7 @@ class DeltaMirrorGenerator(object):
 
         # Regenerate deltarepos.xml
         fn = self._regen_deltarepos_xml()
-        self._debug("Regenerated {}".format(fn))
+        self._debug("Regenerated {0}".format(fn))
 
     def clear_workdir(self, max_num=None, max_age=None):
         if max_num:
@@ -269,10 +269,10 @@ def main():
         parser.error("Address of origin repo is not specified")
 
     if not istimeperiod(options.max_revision_age):
-        parser.error("Not a time period '{}'".format(options.max_revision_age))
+        parser.error("Not a time period '{0}'".format(options.max_revision_age))
 
     if not istimeperiod(options.max_deltarepo_age):
-        parser.error("Not a time period '{}'".format(options.max_deltarepo_age))
+        parser.error("Not a time period '{0}'".format(options.max_deltarepo_age))
 
     # Setup logging
     logger = logging.getLogger("deltarepo_mirror_generator")

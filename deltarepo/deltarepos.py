@@ -250,7 +250,7 @@ class DeltaRepos(object):
         for elem in deltarepos_element.getElementsByTagName("deltarepo"):
             rec = DeltaRepoRecord()._from_xml_element(elem)
             if pedantic and not rec.check():
-                raise DeltaRepoParseError("A record for {} is not valid".format(rec.location_href))
+                raise DeltaRepoParseError("A record for {0} is not valid".format(rec.location_href))
             self.records.append(rec)
         return self
 
@@ -324,7 +324,7 @@ class DeltaRepos(object):
         try:
             self._from_xml_document(document, pedantic=pedantic)
         except DeltaRepoError as err:
-            raise DeltaRepoParseError("Cannot parse: {}".format(err))
+            raise DeltaRepoParseError("Cannot parse: {0}".format(err))
         return self
 
     def load(self, fn, pedantic=False):
@@ -345,7 +345,7 @@ class DeltaRepos(object):
         try:
             self._from_xml_document(document, pedantic=pedantic)
         except DeltaRepoError as err:
-            raise DeltaRepoParseError("Cannot parse {}: {}".format(fn, err))
+            raise DeltaRepoParseError("Cannot parse {0}: {1}".format(fn, err))
         return self
 
     def dumps(self):
@@ -376,7 +376,7 @@ class DeltaRepos(object):
                 compression_type == cr.UNKNOWN_COMPRESSION or
                 compression_type == cr.AUTO_DETECT_COMPRESSION):
             raise DeltaRepoError("Bad compression type: "
-                                 "{}".format(compression_type))
+                                 "{0}".format(compression_type))
 
         suffix = cr.compression_suffix(compression_type)
         if suffix and not fn.endswith(suffix):

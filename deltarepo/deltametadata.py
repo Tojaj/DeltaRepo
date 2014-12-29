@@ -291,7 +291,7 @@ class DeltaMetadata(object):
         try:
             self._parse_dom(dom)
         except DeltaRepoParseError as err:
-            raise DeltaRepoParseError("Cannot parse: {}".format(err))
+            raise DeltaRepoParseError("Cannot parse: {0}".format(err))
 
     def load(self, fn):
         """
@@ -307,7 +307,7 @@ class DeltaMetadata(object):
         try:
             self._parse_dom(dom)
         except DeltaRepoParseError as err:
-            msg = "Cannot parse {}: {}".format(fn, err)
+            msg = "Cannot parse {0}: {1}".format(fn, err)
             raise DeltaRepoParseError(msg)
 
     def dumps(self):
@@ -371,7 +371,7 @@ class DeltaMetadata(object):
                 compression_type == cr.UNKNOWN_COMPRESSION or
                 compression_type == cr.AUTO_DETECT_COMPRESSION):
             raise DeltaRepoError("Bad compression type: "
-                                 "{}".format(compression_type))
+                                 "{0}".format(compression_type))
 
         suffix = cr.compression_suffix(compression_type)
         if suffix and not fn.endswith(suffix):

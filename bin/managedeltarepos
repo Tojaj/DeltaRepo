@@ -139,7 +139,7 @@ def gen_delta(old_repo_dir, new_repo_dir, logger, deltarepos_dir=None):
     if rec.check():
         write_deltarepos_file(deltarepos_dir, [rec], append=True)
     else:
-        logger.warning("Skipped {}: Record is not valid".format(rec.location_href))
+        logger.warning("Skipped {0}: Record is not valid".format(rec.location_href))
 
     return dst_dir
 

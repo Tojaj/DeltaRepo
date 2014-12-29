@@ -86,7 +86,7 @@ def parse_options():
             parser.error("--outputdir must be a directory: %s" % args.outputdir)
         repodata_dir = os.path.join(args.outputdir, "repodata")
         if os.path.exists(repodata_dir):
-            parser.error("Path {} already exists! Use different "
+            parser.error("Path {0} already exists! Use different "
                          "--outputdir".format(repodata_dir))
 
     if not os.path.isdir(args.localrepo[0]) or not os.path.isdir(os.path.join(args.localrepo[0], "repodata")):
