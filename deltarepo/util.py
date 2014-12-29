@@ -5,7 +5,7 @@ import datetime
 import createrepo_c as cr
 
 import deltarepo
-from .errors import DeltaRepoError
+from deltarepo.errors import DeltaRepoError
 
 
 def log(logger, level, msg):
@@ -60,6 +60,48 @@ def size_to_human_readable_str(size_in_bytes):
             return "{0:1.3f} {1}".format(size_in_bytes, x)
         size_in_bytes /= 1024.0
     return "{0:1.3f} {1}".format(size_in_bytes, 'TB')
+
+
+def time_period_to_sec(s):
+    """Parse a string containing a time period
+    Input could be a integer value of seconds or a human readable variation
+    specifying days, hours, minutes or seconds
+
+    :param s: the string to parse
+    :type s: str
+    :returns: an integer representing the number of seconds specified by s
+    :raises: ValueError if there is an error parsing the string
+             TypeError if input is not a string
+    """
+    MULTS = {
+        's': 1,
+        'm': 60,
+        'h': 60*60,
+        'd': 60*60*24,
+    }
+
+    if len(s) < 1:
+        raise ValueError("No value specified")
+
+    n = s
+    unit = 's'
+    if s[-1].isalpha():
+        n = s[:-1]
+        unit = s[-1].lower()
+        if unit not in MULTS:
+            raise ValueError("Unknown unit '{}'".format(unit))
+
+    mult = MULTS.get(unit)
+
+    try:
+        n = float(n)
+    except (ValueError, TypeError):
+        raise ValueError("Invalid value: {}".format(n))
+
+    if n < 0:
+        return -1
+
+    return int(n*mult)
 
 
 def compute_file_checksum(path, type="sha256"):
