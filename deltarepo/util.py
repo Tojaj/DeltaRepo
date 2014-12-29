@@ -9,9 +9,77 @@ from deltarepo.errors import DeltaRepoError
 
 
 def log(logger, level, msg):
-    if not logger:
-        return
-    logger.log(level, msg)
+    """Log a message
+
+    :param logger: Logger
+    :type logger: logging.Logger or None
+    :param level" Logging level
+    :type level: int
+    :param msg: message
+    :type msg: str
+    """
+    if logger:
+        logger.log(level, msg)
+
+
+def log_debug(logger, msg):
+    """Log a message with debug level
+
+    :param logger: Logger
+    :type logger: logging.Logger or None
+    :param msg: message
+    :type msg: str
+    """
+    if logger:
+        logger.debug(msg)
+
+
+def log_info(logger, msg):
+    """Log a message with debug level
+
+    :param logger: Logger
+    :type logger: logging.Logger or None
+    :param msg: message
+    :type msg: str
+    """
+    if logger:
+        logger.info(msg)
+
+
+def log_warning(logger, msg):
+    """Log a message with warning level
+
+    :param logger: Logger
+    :type logger: logging.Logger or None
+    :param msg: message
+    :type msg: str
+    """
+    if logger:
+        logger.warning(msg)
+
+
+def log_error(logger, msg):
+    """Log a message with error level
+
+    :param logger: Logger
+    :type logger: logging.Logger or None
+    :param msg: message
+    :type msg: str
+    """
+    if logger:
+        logger.error(msg)
+
+
+def log_critical(logger, msg):
+    """Log a message with critical level
+
+    :param logger: Logger
+    :type logger: logging.Logger or None
+    :param msg: message
+    :type msg: str
+    """
+    if logger:
+        logger.critical(msg)
 
 
 def pkg_id_str(pkg, logger=None):
@@ -232,11 +300,6 @@ def write_deltarepos_file(path, records, append=False):
         drs.append_record(rec)
     drs.dump(deltareposxml_path)
     return deltareposxml_path
-
-
-def log_warning(logger, msg):
-    if logger:
-        logger.warning(msg)
 
 
 def gen_deltarepos_file(workdir, logger, force=False, update=False):
