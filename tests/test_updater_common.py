@@ -50,6 +50,20 @@ class TestCaseLocalRepo(unittest.TestCase):
         self.assertEqual(lr.contenthash_type, "md5")
         self.assertEqual(lr.contenthash, "357a4ca1d69f48f2a278158079153211")
 
+    def test_localrepo_cost(self):
+        lr = LocalRepo.from_path(REPO_01_PATH)
+
+        full_cost = lr.cost(include_repomd_size=False)
+        self.assertEqual(full_cost, 822+843+817+2036+294+358)
+
+        full_cost = lr.cost(include_repomd_size=True)
+        self.assertEqual(full_cost, 822+843+817+2036+294+358+3066)
+
+        full_cost = lr.cost(whitelisted_metadata=["primary", "filelists"],
+                            include_repomd_size=False)
+        self.assertEqual(full_cost, 843+294)
+
+
 class TestCaseOriginRepo(unittest.TestCase):
     def originrepo_init(self):
         lr = OriginRepo()

@@ -19,6 +19,7 @@ class _Repo(object):
         self.path = None                    # Path (only for local repo)
         self.repodata = None                # Path to repodata dir (only for local repo)
         self.basename = None                # Repo's basename derived from path (only for local repo)
+        self.repomd_size = 0                # Size of repomd
         self.timestamp = None               # Highest timestamp in the repository
         self.revision = None                # Revision
         self.contenthash = None             # Calculated content hash
@@ -90,13 +91,16 @@ class _Repo(object):
         self.path = path
         self.repodata = os.path.join(path, "repodata")
         self.basename = os.path.basename(path)
+        self.repomd_size = os.path.getsize(repomd_path)
 
-    def cost(self, whitelisted_metadata=None):
-        cost = 0  # TODO: Include size of repomd.xml (?)
+    def cost(self, whitelisted_metadata=None, include_repomd_size=True):
+        cost = 0
         for rec in self._repomd.records:
             if whitelisted_metadata and rec.type not in whitelisted_metadata:
                 continue
             cost += rec.size or 0
+        if include_repomd_size:
+            cost += self.repomd_size
         return cost
 
 
@@ -115,6 +119,7 @@ class LocalRepo(_Repo):
                            contenthash=calc_contenthash,
                            contenthash_type=contenthash_type)
         return lr
+
 
 class OriginRepo(_Repo):
     # TODO: Keep the downloaded repomd.xml
