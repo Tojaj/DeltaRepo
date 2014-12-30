@@ -190,6 +190,10 @@ def update_with_deltas(args, drmirros, localrepo, originrepo, logger):
         logger.debug("Full cost: {0}".format(size_to_human_readable_str(link.cost())))
         logger.debug("Real cost: {0}".format(size_to_human_readable_str(link.cost(whitelisted_metadata))))
     logger.debug("----------------------------------------------------------")
+    if whitelisted_metadata:
+        logger.debug("Metadata included for real cost: {0}".format(" ".join(sorted(whitelisted_metadata))))
+    else:
+        logger.debug("Complete metadata are included in real cost")
     logger.debug("Total full cost: {0}".format(size_to_human_readable_str(full_cost)))
     logger.debug("Total real cost: {0}".format(size_to_human_readable_str(real_cost)))
 
