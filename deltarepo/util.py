@@ -120,6 +120,17 @@ def calculate_content_hash(path_to_primary_xml, checksum_type="sha256", logger=N
 
 
 def size_to_human_readable_str(size_in_bytes):
+    """Convert bytes into more user friendly units
+
+    Note: Output values of this function may differ from values
+    shown by 'ls -l' because ls rounds output sizes (and rounds them up).
+
+    :param size_in_bytes: Size in bytes
+    :type size_in_bytes: int
+    :returns: Size in human readable format with unit appended
+    :rtype: str
+    """
+
     if size_in_bytes < 0:
         return "{0}".format(size_in_bytes)
 

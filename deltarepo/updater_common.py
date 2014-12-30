@@ -94,6 +94,8 @@ class _Repo(object):
         self.repomd_size = os.path.getsize(repomd_path)
 
     def cost(self, whitelisted_metadata=None, include_repomd_size=True):
+        # TODO: Some records sometimes don't have size specified
+        #       (size is determined as 0) - print warning about such records
         cost = 0
         for rec in self._repomd.records:
             if whitelisted_metadata and rec.type not in whitelisted_metadata:
