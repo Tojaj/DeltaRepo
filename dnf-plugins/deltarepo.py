@@ -24,6 +24,13 @@ import subprocess
 import tempfile
 
 
+# Hardcoded mirrors - only for early devel phase - will be removed in future
+DELTA_MIRRORS = {
+    "rawhide": ["http://10.34.34.33/deltamirror/rawhide/$basearch/os/"],
+    "fedora": ["http://10.34.34.33/deltamirror/$releasever/$basearch/os/"],
+}
+
+
 def run_cmd(cmd):
     proc = subprocess.Popen(cmd,
                             stdout=subprocess.PIPE,
@@ -48,6 +55,10 @@ class DeltaRepo(dnf.Plugin):
 
     def config(self):
         for repo in self.base.repos.iter_enabled():
+            # XXX: Early devel phase hack - remove in future
+            if repo.id in DELTA_MIRRORS:
+                repo.deltarepobaseurl = DELTA_MIRRORS[repo.id]
+
             if not hasattr(repo, "deltarepobaseurl"):
                 return  # DNF do not support deltarepobaseurl config option
 
@@ -58,17 +69,28 @@ class DeltaRepo(dnf.Plugin):
                 continue  # No cache for the repo exists
 
             if repo.metadata is not None and repo.metadata.fresh:
-                pass
+                # Don't try to update repodata yet
+                #return
+                pass  # XXX: Devel hack
 
+            # Start working
             self._out("Processing repo \"{0}\"".format(repo.name))
 
+            # Expand variables in URLs
+            deltarepobaseurls = []
+            for url in repo.deltarepobaseurl:
+                for var, sub in repo.substitutions.iteritems():
+                    url = url.replace("$"+var, sub)
+                deltarepobaseurls.append(url)
+
+            # Create a temporary directory
             dir = tempfile.mkdtemp(prefix="dnf-deltarepo-plugin-", dir="/tmp")
             self._out("Temporary dir: {0}".format(dir))
 
             # Prepare command
             # Todo properly escape arguments
             cmd = ["repoupdater"]
-            for url in repo.deltarepobaseurl:
+            for url in deltarepobaseurls:
                 cmd.append("--drmirror '{0}'".format(url))
             for url in repo.baseurl:
                 cmd.append("--repo '{0}'".format(url))
