@@ -110,7 +110,7 @@ def parse_options():
 
     try:
         args.max_ratio = float(args.max_ratio)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         parser.error("Value of --max-ratio have to be a float number")
 
     if args.debug:
