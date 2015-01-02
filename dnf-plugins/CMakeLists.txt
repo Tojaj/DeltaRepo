@@ -1,0 +1,1 @@
+INSTALL (FILES deltarepo.py DESTINATION ${PYTHON_INSTALL_DIR}/dnf-plugins)

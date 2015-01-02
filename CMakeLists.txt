@@ -15,27 +15,19 @@ EXECUTE_PROCESS(COMMAND
 
 MESSAGE(STATUS "Python install dir is ${PYTHON_INSTALL_DIR}")
 
-ADD_SUBDIRECTORY(bin)
-ADD_SUBDIRECTORY(deltarepo)
-ENABLE_TESTING()
-ADD_SUBDIRECTORY(tests)
 
 CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/deltarepo/const.py.in
                ${CMAKE_SOURCE_DIR}/deltarepo/const.py
                @ONLY)
 
-#IF (${CMAKE_VERSION} VERSION_LESS "2.8.0")
-#    CONFIGURE_FILE( "deltarepo.py" COPYONLY)
-#    CONFIGURE_FILE( "managedeltarepos.py" COPYONLY)
-#    CONFIGURE_FILE( "repoupdater.py" COPYONLY)
-#ELSE()
-#    FILE(COPY deltarepo.py DESTINATION ./)
-#    FILE(COPY managedeltarepos.py DESTINATION ./)
-#    FILE(COPY repoupdater.py DESTINATION ./)
-#ENDIF()
-
 #INSTALL(DIRECTORY deltarepo/
 #        DESTINATION ${PYTHON_INSTALL_DIR}/deltarepo
 #        FILES_MATCHING PATTERN "*.py")
 
-ADD_SUBDIRECTORY (doc)
+ENABLE_TESTING()
+
+ADD_SUBDIRECTORY(bin)
+ADD_SUBDIRECTORY(deltarepo)
+ADD_SUBDIRECTORY(dnf-plugins)
+ADD_SUBDIRECTORY(doc)
+ADD_SUBDIRECTORY(tests)
