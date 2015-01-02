@@ -15,8 +15,7 @@
 
 from __future__ import absolute_import
 from __future__ import unicode_literals
-from dnf.i18n import ucd
-from dnfpluginscore import logger
+from dnfpluginscore import _, logger
 
 import sys
 import dnf
@@ -92,7 +91,7 @@ class DeltaRepo(dnf.Plugin):
                 continue
 
             # Start working
-            self._info("Processing \"{0}\"".format(repo.name))
+            self._info(_("Processing \"{0}\"").format(repo.name))
 
             # Expand variables in URLs
             deltarepobaseurls = []
@@ -133,17 +132,15 @@ class DeltaRepo(dnf.Plugin):
 
             # Run the update
             self._debug("Command: {0}".format(cmd_str))
-            self._debug("------------------------------------------------------")
             ret, output = run_cmd(cmd)
             self._debug(output)
-            self._debug("------------------------------------------------------")
 
             # Check results
             if ret != 0:
                 self._debug("Repo haven't been updated by deltas")
                 return
 
-            self._info("The \"{0}\" have been updated by deltas".format(repo.name))
+            self._info(_("The \"{0}\" have been updated by deltas").format(repo.name))
 
             # Remove old .solv[x] files
             cached_files_to_remove = (
