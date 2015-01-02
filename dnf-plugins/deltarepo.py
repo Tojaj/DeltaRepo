@@ -18,10 +18,19 @@ from __future__ import unicode_literals
 from dnf.i18n import ucd
 from dnfpluginscore import logger
 
+import sys
 import dnf
 import os.path
-import subprocess
+import dnf.repo
 import tempfile
+import subprocess
+
+PY3 = sys.version_info.major >= 3
+
+if PY3:
+    from shlex import quote
+else:
+    from pipes import quote
 
 
 # Hardcoded mirrors - only for early devel phase - will be removed in future
@@ -35,7 +44,6 @@ def run_cmd(cmd):
     proc = subprocess.Popen(cmd,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT,
-                            shell=True,
                             close_fds=True)
     ret = proc.wait()
     output = proc.stdout.read()
@@ -50,8 +58,11 @@ class DeltaRepo(dnf.Plugin):
         self.base = base
         self.cache = '/var/cache/dnf/'
 
-    def _out(self, msg):
-        logger.debug('DeltaRepo plugin: %s', msg)
+    def _info(self, msg):
+        logger.info('{0} plugin: {1}'.format(self.__class__.__name__, msg))
+
+    def _debug(self, msg):
+        logger.debug('{0} plugin: {1}'.format(self.__class__.__name__, msg))
 
     def config(self):
         for repo in self.base.repos.iter_enabled():
@@ -60,21 +71,28 @@ class DeltaRepo(dnf.Plugin):
                 repo.deltarepobaseurl = DELTA_MIRRORS[repo.id]
 
             if not hasattr(repo, "deltarepobaseurl"):
-                return  # DNF do not support deltarepobaseurl config option
+                # DNF do not support deltarepobaseurl config option
+                return
 
             if not repo.deltarepobaseurl:
-                continue  # No delta repos available
+                # No delta repos available
+                continue
 
             if not os.path.isdir(repo.cachedir):
-                continue  # No cache for the repo exists
+                # No cache for the repo exists yet
+                continue
 
             if repo.metadata is not None and repo.metadata.fresh:
                 # Don't try to update repodata yet
                 #return
                 pass  # XXX: Devel hack
 
+            if repo.sync_strategy in (dnf.repo.SYNC_LAZY, dnf.repo.SYNC_ONLY_CACHE):
+                # Current metadata are not needed
+                continue
+
             # Start working
-            self._out("Processing repo \"{0}\"".format(repo.name))
+            self._info("Processing \"{0}\"".format(repo.name))
 
             # Expand variables in URLs
             deltarepobaseurls = []
@@ -85,40 +103,61 @@ class DeltaRepo(dnf.Plugin):
 
             # Create a temporary directory
             dir = tempfile.mkdtemp(prefix="dnf-deltarepo-plugin-", dir="/tmp")
-            self._out("Temporary dir: {0}".format(dir))
+            self._debug("Temporary dir: {0}".format(dir))
 
             # Prepare command
             # Todo properly escape arguments
             cmd = ["repoupdater"]
             for url in deltarepobaseurls:
-                cmd.append("--drmirror '{0}'".format(url))
+                cmd.append("--drmirror")
+                cmd.append(url)
             for url in repo.baseurl:
-                cmd.append("--repo '{0}'".format(url))
+                cmd.append("--repo")
+                cmd.append(url)
             if repo.metalink:
-                cmd.append("--repomatalink '{0}'".format(repo.metalink))
+                cmd.append("--repometalink")
+                cmd.append(repo.metalink)
             if repo.mirrorlist:
-                cmd.append("--repomirrorlist '{0}'".format(repo.mirrorlist))
+                cmd.append("--repomirrorlist")
+                cmd.append(repo.mirrorlist)
             cmd.append("--delta-or-nothing")
-            cmd.append("--outputdir '{0}'".format(dir))
+            #cmd.append("--force-deltas") # XXX
+            cmd.append("--outputdir")
+            cmd.append(dir)
             cmd.append("--verbose")
+            cmd.append("--debug")
             cmd.append("--update-only-available")
             cmd.append(repo.cachedir)
-            cmd = " ".join(cmd)
+
+            cmd_str = " ".join([quote(component) for component in cmd])
 
             # Run the update
-            self._out("Command: {0}".format(cmd))
-            self._out("------------------------------------------------------")
+            self._debug("Command: {0}".format(cmd_str))
+            self._debug("------------------------------------------------------")
             ret, output = run_cmd(cmd)
-            self._out(output)
-            self._out("------------------------------------------------------")
+            self._debug(output)
+            self._debug("------------------------------------------------------")
 
             # Check results
-            if not ret:
-                self._out("FAILED")
+            if ret != 0:
+                self._debug("Repo haven't been updated by deltas")
                 return
 
-            self._out("SUCCESS")
+            self._info("The \"{0}\" have been updated by deltas".format(repo.name))
 
-            # Move results to dnf cache (repo.cachedir)
             # Remove old .solv[x] files
+            cached_files_to_remove = (
+                "{0}.solv",
+                "{0}-filenames.solvx",
+                "{0}-presto.solvx",
+                "{0}-updateinfo.solvx"
+            )
+
+            for template in cached_files_to_remove:
+                fn = template.format(repo.id)
+                path = os.path.join(self.base.conf.cachedir, fn)
+                if os.path.isfile(path):
+                    self._debug("Removing old cache file: {0}".format(path))
+                    os.unlink(path)
+
         return
