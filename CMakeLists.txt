@@ -7,7 +7,7 @@ SET (VERSION "${LIBREPO_MAJOR}.${LIBREPO_MINOR}.${LIBREPO_PATCH}")
 FIND_PACKAGE (PythonInterp REQUIRED)
 
 EXECUTE_PROCESS(COMMAND
-                ${PYTHON_EXECUTABLE} -c "from sys import stdout; from distutils import sysconfig; stdout.write(sysconfig.get_python_lib(True))"
+                ${PYTHON_EXECUTABLE} -c "from sys import stdout; from distutils import sysconfig; stdout.write(sysconfig.get_python_lib())"
                 OUTPUT_VARIABLE PYTHON_INSTALL_DIR)
 EXECUTE_PROCESS(COMMAND
                 ${PYTHON_EXECUTABLE} -c "import sys; sys.stdout.write('%s.%s' % (sys.version_info.major, sys.version_info.minor))"

@@ -2,7 +2,7 @@
 # gitrev is output of: git rev-parse --short HEAD
 
 Name:           deltarepo
-Summary:        Tool for generation and application of delta repositories.
+Summary:        Set of utilities for manipulation with delta repositories.
 Version:        0.0.1
 Release:        1%{?dist}
 License:        GPLv2
@@ -26,7 +26,7 @@ Set of tools that generate/merges differences between an old
 and a new version of a repodata.
 
 %package -n python-deltarepo
-Summary:    Python library for generation and application of delta repositories.
+Summary:    Python library for generation and application of delta repositories
 Group:      Development/Languages
 Requires:   %{name}%{?_isa} = %{version}-%{release}
 Requires:   python-createrepo_c = %{version}-%{release}
@@ -53,17 +53,16 @@ make install DESTDIR=$RPM_BUILD_ROOT/
 %files
 %doc README.md
 %doc LICENSE
-#%_mandir/man8/createrepo_c.8.*
-#%_mandir/man8/mergerepo_c.8.*
-#%_mandir/man8/modifyrepo_c.8.*
+#%_mandir/man8/deltarepo_c.8.*
 #%config%{_sysconfdir}/bash_completion.d/deltarepo.bash
 %{_bindir}/deltarepo
+%{_bindir}/deltarepo_mirror_generation
 %{_bindir}/managedeltarepos
 %{_bindir}/repocontenthash
 %{_bindir}/repoupdater
 
 %files -n python-deltarepo
-%{python_sitearch}/deltarepo/
+%{python_sitelib}/deltarepo/
 
 %changelog
 * Tue Feb  25 2014 Tomas Mlcoch <tmlcoch at redhat.com> - 0.0.1-1
