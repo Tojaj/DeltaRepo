@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DELTAREPO="../deltarepo.py"
+DELTAREPO="../bin/deltarepo"
 
 MY_DIR=`dirname $0`
 
