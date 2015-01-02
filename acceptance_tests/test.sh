@@ -305,15 +305,18 @@ function testcase02 {
     mkdir $DELTADIR
     mkdir $FINALDIR
 
-    if [ "$DELTAREPO_QUIET" = 1 ]; then
-        $DELTAREPO --quiet -o $DELTADIR $1 $2
-        $DELTAREPO --ignore-missing --quiet -a -o $FINALDIR $3 $DELTADIR
-    else
-        $DELTAREPO -o $DELTADIR $1 $2
-        $DELTAREPO --ignore-missing -a -o $FINALDIR $3 $DELTADIR
+    $DELTAREPO --verbose -o $DELTADIR $1 $2 &>> $TCDIR/output
+    echo "----------" >> $TCDIR/output
+    $DELTAREPO --ignore-missing -a -o $FINALDIR $3 $DELTADIR &>> $TCDIR/output
+    echo "----------" >> $TCDIR/output
+
+    compare_repos $2 $FINALDIR |& tee --append $TCDIR/output
+
+    if [ "$?" != 0 ]; then
+        echo "FAILED"
+        cat $TCDIR/output
     fi
 
-    compare_repos $2 $FINALDIR
 }
 
 
