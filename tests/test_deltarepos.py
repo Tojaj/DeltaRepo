@@ -63,7 +63,7 @@ class TestCaseDeltaRepos(unittest.TestCase):
         rec = DeltaRepoRecord()
 
         # An empty record shouldn't be valid
-        self.assertFalse(rec.check())
+        self.assertRaises(TypeError, rec.validate)
 
         # Fill the record with valid data
         rec.location_href = "deltarepos/ei7as764ly-043fds4red"
@@ -82,7 +82,7 @@ class TestCaseDeltaRepos(unittest.TestCase):
         rec.repomd_checksums = [("sha256", "foobarchecksum")]
 
         # All mandatory arguments should be filled and thus the record should be valid
-        self.assertTrue(rec.check())
+        rec.validate()
 
         # Dump the content to a file
         dr = DeltaRepos()

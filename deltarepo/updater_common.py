@@ -188,7 +188,15 @@ class DRMirror(object):
         self.deltarepos = None  # DeltaRepos object
 
     @classmethod
-    def from_url(cls, url):
+    def from_url(cls, url, force=False):
+        """
+
+        :param url: URL
+        :type url: str
+        :param force: Silently ignore invalid records
+        :type force: bool
+        :return:
+        """
         # TODO: support for metalink and mirrorlist
         fd, fn = tempfile.mkstemp(prefix="deltarepos.xml.xz-", dir="/tmp")
 
@@ -204,7 +212,7 @@ class DRMirror(object):
         # Parse deltarepos.xml
         dr = DeltaRepos()
         try:
-            dr.load(fn)
+            dr.load(fn, pedantic=(not force))
         except DeltaRepoError as e:
             raise DeltaRepoError("Error while parsing deltarepos.xml "
                                  "from {0}: {1}".format(deltarepos_xml_url, e))
@@ -217,8 +225,11 @@ class DRMirror(object):
         drm.deltarepos = dr         # DeltaRepos object
 
         for record in dr.records:
-            if record.check():
-                drm.records.append(record)
+            try:
+                record.validate()
+            except (ValueError, TypeError):
+                continue
+            drm.records.append(record)
 
         return drm
 

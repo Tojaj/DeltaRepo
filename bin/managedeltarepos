@@ -136,10 +136,11 @@ def gen_delta(old_repo_dir, new_repo_dir, logger, deltarepos_dir=None):
     # Prepare repo's DeltaRepoRecord
     rec = deltareposrecord_from_repopath(dst_dir, deltarepos_dir, logger)
 
-    if rec.check():
+    try:
+        rec.validate()
         write_deltarepos_file(deltarepos_dir, [rec], append=True)
-    else:
-        logger.warning("Skipped {0}: Record is not valid".format(rec.location_href))
+    except (TypeError, ValueError) as err:
+        logger.warning("Skipped {0}: Record is not valid: {1}".format(rec.location_href, err))
 
     return dst_dir
 

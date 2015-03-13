@@ -371,10 +371,11 @@ def gen_deltarepos_file(workdir, logger, force=False, update=False):
 
             logger.debug("Processing {0}".format(root))
 
-            if rec.check():
+            try:
+                rec.validate()
                 records.append(rec)
-            else:
-                msg = "Record for {0} is not valid".format(rec.location_href)
+            except (ValueError, TypeError) as err:
+                msg = "Record for {0} is not valid: {1}".format(rec.location_href, err)
                 logger.warning(msg)
                 if not force:
                     raise DeltaRepoError(msg)

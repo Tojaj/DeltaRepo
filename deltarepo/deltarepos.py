@@ -8,6 +8,7 @@ __all__ = (
 )
 
 import os
+import six
 import tempfile
 import createrepo_c as cr
 import xml.dom.minidom
@@ -15,29 +16,78 @@ from lxml import etree
 
 import deltarepo
 from .errors import DeltaRepoError, DeltaRepoParseError
+from .common import ValidationMixin
 from .xmlcommon import getNode, getRequiredNode
 from .xmlcommon import getAttribute, getRequiredAttribute, getNumAttribute
 from .xmlcommon import getValue
 from .util import isnonnegativeint
 
 
-class DeltaRepoRecord(object):
+class DeltaRepoRecord(ValidationMixin):
     def __init__(self):
-        self.location_base = None
-        self.location_href = None
-        self.revision_src = None
-        self.revision_dst = None
-        self.contenthash_src = None
-        self.contenthash_dst = None
-        self.contenthash_type = None
-        self.timestamp_src = None
-        self.timestamp_dst = None
+        self.location_base = None       #: (str)
+        self.location_href = None       #: (str)
+        self.revision_src = None        #: (str)
+        self.revision_dst = None        #: (str)
+        self.contenthash_src = None     #: (str)
+        self.contenthash_dst = None     #: (str)
+        self.contenthash_type = None    #: (str)
+        self.timestamp_src = None       #: (int)
+        self.timestamp_dst = None       #: (int)
+        self.data = {}                  #: ({str: dict}) { "primary": {"size": 123}, ... }
+        self.repomd_timestamp = None    #: (int) Mtime of repomd file
+        self.repomd_size = None         #: (int) Size of repomd file in bytes
+        self.repomd_checksums = []      #: ([(str, str), ..]) [('type', 'value'), ...]
 
-        self.data = {}  # { "primary": {"size": 123}, ... }
+    def _validate_location_base(self):
+        self._assert_type("location_base", six.string_types, allow_none=True)
 
-        self.repomd_timestamp = None
-        self.repomd_size = None
-        self.repomd_checksums = []  # [('type', 'value'), ...]
+    def _validate_location_href(self):
+        self._assert_type("location_href", six.string_types)
+
+    def _validate_revision_src(self):
+        self._assert_type("revision_src", six.string_types)
+
+    def _validate_revision_dst(self):
+        self._assert_type("revision_dst", six.string_types)
+
+    def _validate_contenthash_src(self):
+        self._assert_type("contenthash_src", six.string_types)
+
+    def _validate_contenthash_dst(self):
+        self._assert_type("contenthash_dst", six.string_types)
+
+    def _validate_contenthash_type(self):
+        self._assert_type("contenthash_type", six.string_types)
+
+    def _validate_timestamp_src(self):
+        self._assert_nonnegative_integer("timestamp_src")
+
+    def _validate_timestamp_dst(self):
+        self._assert_nonnegative_integer("timestamp_dst")
+
+    def _validate_data(self):
+        if not self.data:
+            return
+        self._assert_type("data", [dict])
+        for key, value in six.iteritems(self.data):
+            self._assert_val_type(key, "Key in 'data' dict", six.string_types)
+            self._assert_val_type(value, "Value in 'data' dict", [dict])
+            self._assert_val_type(value.get("size"), "Size element of '%s' key in 'data' dict" % key, six.integer_types)
+
+    def _validate_repomd_timestamp(self):
+        self._assert_nonnegative_integer("repomd_timestamp")
+
+    def _validate_repomd_size(self):
+        self._assert_nonnegative_integer("repomd_size")
+
+    def _validate_repomd_checksums(self):
+        self._assert_type("repomd_checksums", [list])
+        for item in self.repomd_checksums:
+            self._assert_val_type(item, "Item in 'repomd_checksums' list", [tuple])
+            ch_type, ch_value = item
+            self._assert_val_type(ch_type, "Checksum type in 'repomd_checksums' list", six.string_types)
+            self._assert_val_type(ch_value, "Checksum value in 'repomd_checksums' list", six.string_types)
 
     def __repr__(self):
         strrepr = "<DeltaRepoRecord:\n"
@@ -87,7 +137,7 @@ class DeltaRepoRecord(object):
         metadata_types = sorted(self.data.keys())
         for mtype in metadata_types:
             attrs = { "type": unicode(mtype),
-                      "size": unicode(self.get_data(mtype).get("size", 0)) }
+                      "size": unicode(self.get_data(mtype)["size"]) }
             etree.SubElement(deltarepo_el, "data", attrs)
 
         # <repomd>
@@ -177,41 +227,6 @@ class DeltaRepoRecord(object):
             size += data.get("size", 0)
         return size
 
-    def check(self):
-        """Check if all mandatory attributes are filled with reasonable values.
-
-        :returns: True if all mandatory attributes are filled, False otherwise
-        :rtype: bool
-        """
-        if not self.location_href:
-            return False
-        if not self.revision_dst or not self.revision_dst:
-            return False
-        if not self.contenthash_src or not self.contenthash_dst:
-            return False
-        if not self.contenthash_type:
-            return False
-        if not isnonnegativeint(self.timestamp_src):
-            return False
-        if not isnonnegativeint(self.timestamp_dst):
-            return False
-        for data_dict in self.data.itervalues():
-            if not isnonnegativeint(data_dict.get("size")):
-                return False
-
-        if not isnonnegativeint(self.repomd_timestamp):
-            return False
-        if not isnonnegativeint(self.repomd_size):
-            return False
-
-        for data in self.data.itervalues():
-            if "size" not in data:
-                return False
-            if not isnonnegativeint(data.get("size")):
-                return False
-
-        return True
-
     def get_data(self, type):
         return self.data.get(type, None)
 
@@ -219,7 +234,7 @@ class DeltaRepoRecord(object):
         self.data[type] = {"size": int(size)}
 
 
-class DeltaRepos(object):
+class DeltaRepos(ValidationMixin):
     """Object representation of deltarepos.xml"""
 
     def __init__(self):
@@ -237,29 +252,32 @@ class DeltaRepos(object):
             deltarepos_el.append(rec._to_xml_element())
         return deltarepos_el
 
-    def _from_xml_element(self, deltarepos_element, pedantic=False):
+    def _from_xml_element(self, deltarepos_element, pedantic=True):
         """Parse <deltarepos> XML element
 
         :param deltarepos_element: <deltarepos> xml element
         :type deltarepos_element: xml.dom.minidom.Element
-        :param pedantic: Fail if a record is not valid
+        :param pedantic: Fail if a record is not valid (enabled by default)
         :type pedantic: bool
         :returns: Self to enable chaining
         :rtype: DeltaRepos
         """
         for elem in deltarepos_element.getElementsByTagName("deltarepo"):
             rec = DeltaRepoRecord()._from_xml_element(elem)
-            if pedantic and not rec.check():
-                raise DeltaRepoParseError("A record for {0} is not valid".format(rec.location_href))
+            if pedantic:
+                try:
+                    rec.validate()
+                except (TypeError, ValueError) as err:
+                    raise DeltaRepoParseError("A record for {0} is not valid: {1}".format(rec.location_href, err))
             self.records.append(rec)
         return self
 
-    def _from_xml_document(self, dom, pedantic=False):
+    def _from_xml_document(self, dom, pedantic=True):
         """Parse document object model of deltarepos.xml.
 
         :param dom: DOM of deltarepos.xml
         :type dom: xml.dom.minidom.Document
-        :param pedantic: Fail if a record is not valid
+        :param pedantic: Fail if a record is not valid (enabled by default)
         :type pedantic: bool
         :returns: Self to enable chaining
         :rtype: DeltaRepos
@@ -278,16 +296,9 @@ class DeltaRepos(object):
         self.records = []
         return self
 
-    def check(self):
-        """Check if all records are valid
-
-        :returns: True if all records are valid, False otherwise
-        :rtype: bool
-        """
+    def _validate_records(self):
         for rec in self.records:
-            if not rec.check():
-                return False
-        return True
+            rec.validate()
 
     def append_record(self, rec, force=False):
         """Append a DeltaRepoRecord.
@@ -303,19 +314,23 @@ class DeltaRepos(object):
         if not isinstance(rec, DeltaRepoRecord):
             raise TypeError("DeltaRepoRecord object expected")
 
-        if not rec.check() and not force:
-            raise DeltaRepoError("DeltaRepoRecord is not valid")
+        try:
+            rec.validate()
+        except (TypeError, ValueError) as err:
+            if not force:
+                raise DeltaRepoError("DeltaRepoRecord is not valid: %s" % err)
 
         self.records.append(rec)
         return self
 
-    def loads(self, string, pedantic=False):
+    def loads(self, string, pedantic=True):
         """Load metadata from a string.
 
         :param xml: Input data
         :type xml: str
         :param pedantic: Raise exception if there is an invalid record
                          (a record that doesn't contain all mandatory info)
+                         (enabled by default)
         :type pedantic: bool
         :returns: Self to enable chaining (dr = DeltaRepos().loads())
         :rtype: DeltaRepos
@@ -327,13 +342,14 @@ class DeltaRepos(object):
             raise DeltaRepoParseError("Cannot parse: {0}".format(err))
         return self
 
-    def load(self, fn, pedantic=False):
+    def load(self, fn, pedantic=True):
         """Load metadata from a file.
 
         :param fn: Path to a file
         :type fn: str
         :param pedantic: Raise exception if there is an invalid record
                          (a record that doesn't contain all mandatory info)
+                         (enabled by default)
         :type pedantic: bool
         :returns: Self to enable chaining (dr = DeltaRepos().load())
         :rtype: DeltaRepos
